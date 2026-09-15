@@ -33,41 +33,52 @@ class LyricsRepositoryImpl @Inject constructor() : LyricsRepository {
         val artist = clean(song.artist)
         if (track.isBlank()) return@withContext null
 
-        val url = "https://lrclib.net/api/search" +
-            "?track_name=${enc(track)}&artist_name=${enc(artist)}"
-        val json = runCatching { get(url) }.getOrNull() ?: return@withContext null
-
-        val results = runCatching { JSONArray(json) }.getOrNull() ?: return@withContext null
-        if (results.length() == 0) return@withContext null
-
         val targetSec = song.durationMs / 1000.0
+        // First try track + artist; if that has no *synced* match, retry track-only (looser
+        // metadata often surfaces a synced entry the artist-qualified search misses).
+        val first = searchBest(track, artist, targetSec)
+        val chosen = if (first != null && first.hasSynced()) {
+            first
+        } else {
+            val second = if (artist.isNotBlank()) searchBest(track, "", targetSec) else null
+            listOfNotNull(first, second).firstOrNull { it.hasSynced() } ?: first ?: second
+        }
+        chosen?.let { toLyrics(it) }
+    }
+
+    /** Search LRCLIB and return the best-scoring result (prefers synced, then closest duration). */
+    private fun searchBest(track: String, artist: String, targetSec: Double): JSONObject? {
+        val url = "https://lrclib.net/api/search" +
+            "?track_name=${enc(track)}" + if (artist.isNotBlank()) "&artist_name=${enc(artist)}" else ""
+        val json = runCatching { get(url) }.getOrNull() ?: return null
+        val results = runCatching { JSONArray(json) }.getOrNull() ?: return null
         var best: JSONObject? = null
         var bestScore = Double.MAX_VALUE
         for (i in 0 until results.length()) {
             val o = results.optJSONObject(i) ?: continue
-            val hasSynced = !o.optString("syncedLyrics").isNullOrBlank()
-            val dur = o.optDouble("duration", 0.0)
-            // Prefer synced; then closest duration.
-            val durPenalty = if (targetSec > 0) abs(dur - targetSec) else 0.0
-            val score = (if (hasSynced) 0.0 else 10_000.0) + durPenalty
+            val durPenalty = if (targetSec > 0) abs(o.optDouble("duration", 0.0) - targetSec) else 0.0
+            val score = (if (o.hasSynced()) 0.0 else 10_000.0) + durPenalty
             if (score < bestScore) {
                 bestScore = score
                 best = o
             }
         }
-        val chosen = best ?: return@withContext null
+        return best
+    }
 
-        val synced = chosen.optString("syncedLyrics")
+    private fun JSONObject.hasSynced(): Boolean = !optString("syncedLyrics").isNullOrBlank()
+
+    private fun toLyrics(o: JSONObject): Lyrics? {
+        val synced = o.optString("syncedLyrics")
         if (!synced.isNullOrBlank()) {
             val lines = parseLrc(synced)
-            if (lines.isNotEmpty()) return@withContext Lyrics(synced = true, lines = lines)
+            if (lines.isNotEmpty()) return Lyrics(synced = true, lines = lines)
         }
-        val plain = chosen.optString("plainLyrics")
+        val plain = o.optString("plainLyrics")
         if (!plain.isNullOrBlank()) {
-            val lines = plain.split("\n").map { LyricLine(timeMs = null, text = it.trim()) }
-            return@withContext Lyrics(synced = false, lines = lines)
+            return Lyrics(synced = false, lines = plain.split("\n").map { LyricLine(timeMs = null, text = it.trim()) })
         }
-        null
+        return null
     }
 
     private fun get(url: String): String? {

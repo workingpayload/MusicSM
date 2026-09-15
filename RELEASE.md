@@ -1,5 +1,28 @@
 # Release notes
 
+## v1.5.0 — 2026-09-15
+
+### New
+
+- **Import playlists from a Spotify link** — paste a public playlist URL; each track is matched on YouTube and saved as a local playlist, with the Spotify cover art pulled in automatically. A mini "tap the notes" game and an animated wave play while it imports.
+- **Custom playlist covers** — set or change a playlist's cover from your photos (persists); falls back to the imported/first-track art.
+- **Delete playlists** — from the playlist screen, with a confirm dialog.
+- **Album & Artist pages** — open a detail page (art, tracklist, Play/Shuffle) instead of playing immediately.
+
+### Improvements
+
+- **Lyrics** — added a track-only fallback that prefers synced results, so more songs highlight in time.
+- **Now Playing** — hue-cycling frosted-glass play/pause button, animated multi-hue seek bar, frame-smooth progress + lyric sync, high-resolution artwork.
+- **Home** — personalized recommendation shelves, real trending, pull-to-refresh, shimmer skeleton loading.
+- **Modern progress bar** for imports (gradient fill + percentage).
+- Media notification / lockscreen tap now reopens the app.
+- Horizontal slide transitions between screens.
+
+### Notes
+
+- Spotify import requires a **public** playlist link (the Web API path is blocked for Development-Mode apps).
+- Database migrated to v2 (adds playlist cover); existing library is preserved.
+
 ## v1.0.0 — 2026-09-13
 
 First release of MusicSM: a dark, glassmorphic YouTube‑backed music player.

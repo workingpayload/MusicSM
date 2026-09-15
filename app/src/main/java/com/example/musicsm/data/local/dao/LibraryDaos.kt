@@ -52,6 +52,9 @@ interface PlaylistDao {
     @Query("UPDATE playlists SET name = :name WHERE playlistId = :id")
     suspend fun rename(id: Long, name: String)
 
+    @Query("UPDATE playlists SET artworkUrl = :url WHERE playlistId = :id")
+    suspend fun setArtwork(id: Long, url: String?)
+
     @Query("SELECT * FROM playlists ORDER BY createdAt DESC")
     fun playlists(): Flow<List<PlaylistEntity>>
 

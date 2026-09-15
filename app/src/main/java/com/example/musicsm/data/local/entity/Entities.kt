@@ -20,6 +20,7 @@ data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val playlistId: Long = 0,
     val name: String,
     val createdAt: Long,
+    val artworkUrl: String? = null,
 )
 
 @Entity(

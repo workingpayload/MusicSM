@@ -28,7 +28,9 @@ class LibraryRepositoryImpl @Inject constructor(
 
     override fun playlists(): Flow<List<Playlist>> =
         playlistDao.playlists().map { list ->
-            list.map { Playlist(id = it.playlistId.toString(), name = it.name, isLocal = true) }
+            list.map {
+                Playlist(id = it.playlistId.toString(), name = it.name, artworkUrl = it.artworkUrl, isLocal = true)
+            }
         }
 
     override fun isLiked(songId: String): Flow<Boolean> = likeDao.isLiked(songId)
@@ -55,13 +57,16 @@ class LibraryRepositoryImpl @Inject constructor(
     override suspend fun renamePlaylist(playlistId: Long, name: String) =
         playlistDao.rename(playlistId, name)
 
+    override suspend fun setPlaylistArtwork(playlistId: Long, url: String?) =
+        playlistDao.setArtwork(playlistId, url)
+
     override fun playlist(playlistId: Long): Flow<Playlist?> =
         combine(playlistDao.playlist(playlistId), playlistDao.playlistSongs(playlistId)) { entity, songs ->
             entity?.let {
                 Playlist(
                     id = it.playlistId.toString(),
                     name = it.name,
-                    artworkUrl = songs.firstOrNull()?.artworkUrl,
+                    artworkUrl = it.artworkUrl ?: songs.firstOrNull()?.artworkUrl,
                     songs = songs.map { s -> s.toSong() },
                     isLocal = true,
                 )

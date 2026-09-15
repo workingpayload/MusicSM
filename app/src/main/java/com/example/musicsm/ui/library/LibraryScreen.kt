@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
@@ -58,6 +59,7 @@ fun LibraryScreen(
     playerViewModel: PlayerViewModel,
     onOpenLiked: () -> Unit,
     onOpenPlaylist: (Long) -> Unit,
+    onImportPlaylist: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -87,6 +89,14 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
                 )
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onImportPlaylist)
+                        .padding(8.dp),
+                ) {
+                    Icon(Icons.Filled.CloudDownload, contentDescription = "Import playlist", tint = MaterialTheme.colorScheme.onBackground)
+                }
                 Box(
                     modifier = Modifier
                         .clip(CircleShape)

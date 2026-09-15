@@ -3,10 +3,12 @@ package com.example.musicsm.di
 import com.example.musicsm.data.repository.LibraryRepositoryImpl
 import com.example.musicsm.data.repository.LyricsRepositoryImpl
 import com.example.musicsm.data.repository.MusicRepositoryImpl
+import com.example.musicsm.data.repository.SpotifyImportRepositoryImpl
 import com.example.musicsm.data.source.youtube.NewPipeMusicSource
 import com.example.musicsm.domain.repository.LibraryRepository
 import com.example.musicsm.domain.repository.LyricsRepository
 import com.example.musicsm.domain.repository.MusicRepository
+import com.example.musicsm.domain.repository.PlaylistImportRepository
 import com.example.musicsm.domain.source.MusicSource
 import dagger.Binds
 import dagger.Module
@@ -33,4 +35,8 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindLyricsRepository(impl: LyricsRepositoryImpl): LyricsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPlaylistImportRepository(impl: SpotifyImportRepositoryImpl): PlaylistImportRepository
 }

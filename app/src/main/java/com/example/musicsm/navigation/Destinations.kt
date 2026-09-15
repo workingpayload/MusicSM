@@ -22,6 +22,7 @@ object Routes {
     const val ALBUM = "album/{albumId}"
     const val ARTIST = "artist/{artistId}"
     const val LOCAL_PLAYLIST = "local_playlist/{playlistId}"
+    const val IMPORT = "import"
 
     fun album(albumId: String) = "album/${Uri.encode(albumId)}"
     fun artist(artistId: String) = "artist/${Uri.encode(artistId)}"

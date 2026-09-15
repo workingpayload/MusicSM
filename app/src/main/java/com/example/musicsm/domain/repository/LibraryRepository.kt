@@ -17,6 +17,9 @@ interface LibraryRepository {
     suspend fun deletePlaylist(playlistId: Long)
     suspend fun renamePlaylist(playlistId: Long, name: String)
 
+    /** Set (or clear) a playlist's cover image URL. */
+    suspend fun setPlaylistArtwork(playlistId: Long, url: String?)
+
     fun playlist(playlistId: Long): Flow<Playlist?>
     suspend fun addToPlaylist(playlistId: Long, song: Song)
     suspend fun removeFromPlaylist(playlistId: Long, songId: String)

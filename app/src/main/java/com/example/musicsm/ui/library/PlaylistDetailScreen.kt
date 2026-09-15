@@ -1,7 +1,13 @@
 package com.example.musicsm.ui.library
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,16 +23,26 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -36,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.musicsm.ui.components.ArtworkImage
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.SongRow
 import com.example.musicsm.ui.components.accentColorFor
@@ -56,6 +73,20 @@ fun PlaylistDetailScreen(
         url = ui.songs.firstOrNull()?.artworkUrl,
         fallback = accentColorFor(ui.title),
     )
+    var showDelete by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val pickCover = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            viewModel.setArtwork(uri.toString())
+        }
+    }
 
     Column(modifier = modifier.fillMaxWidth().background(AppBackground).statusBarsPadding()) {
         Row(
@@ -64,6 +95,12 @@ fun PlaylistDetailScreen(
         ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+            }
+            Spacer(Modifier.weight(1f))
+            if (!ui.isLiked) {
+                IconButton(onClick = { showDelete = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete playlist", tint = MaterialTheme.colorScheme.onBackground)
+                }
             }
         }
 
@@ -85,18 +122,54 @@ fun PlaylistDetailScreen(
                         },
                     contentAlignment = Alignment.BottomStart,
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = ui.title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Text(
-                            text = "${ui.songs.size} songs",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = OnDarkVariant,
-                        )
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        // Cover art (tap to change, for editable playlists).
+                        Box(
+                            modifier = Modifier
+                                .size(96.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .then(if (!ui.isLiked) Modifier.clickable { pickCover.launch(pickImageRequest()) } else Modifier),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ArtworkImage(
+                                url = ui.artworkUrl,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                            )
+                            if (!ui.isLiked && ui.artworkUrl == null) {
+                                Icon(
+                                    Icons.Filled.AddPhotoAlternate,
+                                    contentDescription = "Add cover",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = ui.title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                            Text(
+                                text = "${ui.songs.size} songs",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = OnDarkVariant,
+                            )
+                            if (!ui.isLiked) {
+                                Text(
+                                    text = if (ui.artworkUrl == null) "Add cover" else "Change cover",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable { pickCover.launch(pickImageRequest()) },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -158,4 +231,27 @@ fun PlaylistDetailScreen(
             }
         }
     }
+
+    if (showDelete) {
+        AlertDialog(
+            onDismissRequest = { showDelete = false },
+            title = { Text("Delete playlist?") },
+            text = { Text("\"${ui.title}\" will be removed from your library. This can't be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDelete = false
+                        viewModel.delete()
+                        onBack()
+                    },
+                ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDelete = false }) { Text("Cancel") }
+            },
+        )
+    }
 }
+
+private fun pickImageRequest() =
+    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)

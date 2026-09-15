@@ -18,6 +18,7 @@ data class PlaylistDetailUiState(
     val title: String = "",
     val songs: List<Song> = emptyList(),
     val isLiked: Boolean = false,
+    val artworkUrl: String? = null,
 )
 
 @HiltViewModel
@@ -36,11 +37,29 @@ class PlaylistDetailViewModel @Inject constructor(
                 .map { PlaylistDetailUiState("Liked Songs", it, isLiked = true) }
         } else {
             libraryRepository.playlist(playlistId)
-                .map { PlaylistDetailUiState(it?.name ?: "Playlist", it?.songs ?: emptyList()) }
+                .map {
+                    PlaylistDetailUiState(
+                        title = it?.name ?: "Playlist",
+                        songs = it?.songs ?: emptyList(),
+                        artworkUrl = it?.artworkUrl,
+                    )
+                }
         }).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlaylistDetailUiState())
 
     fun remove(song: Song) {
         if (isLiked) return
         viewModelScope.launch { libraryRepository.removeFromPlaylist(playlistId, song.id) }
+    }
+
+    /** Delete this playlist (no-op for the built-in Liked Songs collection). */
+    fun delete() {
+        if (isLiked) return
+        viewModelScope.launch { libraryRepository.deletePlaylist(playlistId) }
+    }
+
+    /** Set a custom cover image (content URI string) for this playlist. */
+    fun setArtwork(url: String) {
+        if (isLiked) return
+        viewModelScope.launch { libraryRepository.setPlaylistArtwork(playlistId, url) }
     }
 }

@@ -12,6 +12,7 @@ import androidx.navigation.navArgument
 import com.example.musicsm.ui.album.AlbumDetailScreen
 import com.example.musicsm.ui.artist.ArtistDetailScreen
 import com.example.musicsm.ui.home.HomeScreen
+import com.example.musicsm.ui.importer.ImportPlaylistScreen
 import com.example.musicsm.ui.library.LibraryScreen
 import com.example.musicsm.ui.library.PlaylistDetailScreen
 import com.example.musicsm.ui.player.PlayerViewModel
@@ -57,7 +58,17 @@ fun MusicSmNavHost(
                 playerViewModel = playerViewModel,
                 onOpenLiked = { navController.navigate(Routes.liked()) },
                 onOpenPlaylist = { navController.navigate(Routes.localPlaylist(it)) },
+                onImportPlaylist = { navController.navigate(Routes.IMPORT) },
             )
+        }
+        composable(
+            route = Routes.IMPORT,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            ImportPlaylistScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.ALBUM,

@@ -17,7 +17,7 @@ import com.example.musicsm.data.local.entity.SongEntity
         PlaylistSongCrossRef::class,
         LikedSongEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class MusicDatabase : RoomDatabase() {
