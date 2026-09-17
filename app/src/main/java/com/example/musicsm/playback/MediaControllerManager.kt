@@ -7,6 +7,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.example.musicsm.data.prefs.AppPreferences
 import com.example.musicsm.domain.model.Song
 import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +31,7 @@ import javax.inject.Singleton
 @Singleton
 class MediaControllerManager @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val preferences: AppPreferences,
 ) {
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
@@ -39,6 +41,9 @@ class MediaControllerManager @Inject constructor(
 
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
+
+    private var lastSavedSignature: String? = null
+    private var lastSaveAtMs = 0L
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
@@ -55,12 +60,33 @@ class MediaControllerManager @Inject constructor(
         future.addListener({
             controller = runCatching { future.get() }.getOrNull()?.also {
                 it.addListener(listener)
+                restoreQueueIfNeeded(it)
             }
             pushState()
         }, ContextCompat.getMainExecutor(context))
     }
 
+    /**
+     * Repopulates an empty player with the queue saved on the previous run, paused at the
+     * position the user left off. Never auto-plays.
+     */
+    private fun restoreQueueIfNeeded(c: MediaController) {
+        if (c.mediaItemCount > 0) return
+        if (!preferences.restoreQueueNow) return
+        val saved = preferences.loadQueue() ?: return
+        runCatching {
+            c.setMediaItems(
+                saved.songs.map(MediaItemMapper::toMediaItem),
+                saved.index,
+                saved.positionMs,
+            )
+            c.playWhenReady = false
+            c.prepare()
+        }
+    }
+
     fun release() {
+        persistQueue(force = true)
         stopTicker()
         controller?.removeListener(listener)
         controllerFuture?.let { MediaController.releaseFuture(it) }
@@ -89,6 +115,10 @@ class MediaControllerManager @Inject constructor(
             }
             else -> c.play()
         }
+    }
+
+    fun pause() {
+        controller?.pause()
     }
 
     fun next() = controller?.seekToNext().let {}
@@ -131,6 +161,11 @@ class MediaControllerManager @Inject constructor(
     fun toggleShuffle() {
         val c = controller ?: return
         c.shuffleModeEnabled = !c.shuffleModeEnabled
+    }
+
+    /** Force shuffle on/off. Use this for "Shuffle" buttons so they never turn shuffle *off*. */
+    fun setShuffle(enabled: Boolean) {
+        controller?.shuffleModeEnabled = enabled
     }
 
     fun cycleRepeat() {
@@ -177,6 +212,7 @@ class MediaControllerManager @Inject constructor(
             currentSong = c.currentMediaItem?.let(MediaItemMapper::toSong),
             isPlaying = c.isPlaying,
             isBuffering = c.playbackState == Player.STATE_BUFFERING,
+            isEnded = c.playbackState == Player.STATE_ENDED,
             positionMs = c.currentPosition.coerceAtLeast(0L),
             durationMs = duration.coerceAtLeast(0L),
             queue = queue,
@@ -187,5 +223,33 @@ class MediaControllerManager @Inject constructor(
             hasPrevious = c.hasPreviousMediaItem(),
             volume = c.volume,
         )
+        persistQueue()
+    }
+
+    /**
+     * Writes the queue snapshot to disk. Throttled to once every [SAVE_INTERVAL_MS] unless the
+     * queue contents or the current track changed, in which case it is written immediately.
+     */
+    private fun persistQueue(force: Boolean = false) {
+        val snapshot = _state.value
+        if (!snapshot.isConnected) return
+        if (snapshot.queue.isEmpty()) {
+            if (lastSavedSignature != null) {
+                lastSavedSignature = null
+                preferences.clearQueue()
+            }
+            return
+        }
+        val signature = snapshot.queue.joinToString(",") { it.id } + "@" + snapshot.currentIndex
+        val now = System.currentTimeMillis()
+        val changed = signature != lastSavedSignature
+        if (!force && !changed && now - lastSaveAtMs < SAVE_INTERVAL_MS) return
+        lastSavedSignature = signature
+        lastSaveAtMs = now
+        preferences.saveQueue(snapshot.queue, snapshot.currentIndex, snapshot.positionMs)
+    }
+
+    private companion object {
+        const val SAVE_INTERVAL_MS = 5_000L
     }
 }

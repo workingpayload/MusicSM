@@ -113,7 +113,7 @@ fun MiniGame(modifier: Modifier = Modifier) {
                 ) { score++; move() },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.MusicNote, contentDescription = "note", tint = Color.White, modifier = Modifier.size(26.dp))
+            Icon(Icons.Filled.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
         }
     }
 }

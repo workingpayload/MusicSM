@@ -1,6 +1,8 @@
 package com.example.musicsm.ui.player
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -36,12 +38,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.example.musicsm.R
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.ui.components.ArtworkImage
 import com.example.musicsm.ui.components.rememberDominantColorState
@@ -100,9 +105,9 @@ fun LyricsPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onClose) {
-                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close lyrics", tint = Color.White)
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.lyrics_close), tint = Color.White)
             }
-            Text("Live Lyrics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(stringResource(R.string.lyrics_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
         }
 
         // Now-playing header chip
@@ -131,7 +136,7 @@ fun LyricsPanel(
             }
 
             is LyricsState.None -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Text("No lyrics found", color = Color.White.copy(alpha = 0.7f))
+                Text(stringResource(R.string.lyrics_empty), color = Color.White.copy(alpha = 0.7f))
             }
 
             is LyricsState.Loaded -> {
@@ -152,25 +157,36 @@ fun LyricsPanel(
                 ) {
                     itemsIndexed(lyrics.lines) { index, line ->
                         val isActive = index == activeIndex
-                        val color by animateColorAsState(
-                            if (isActive) Color.White
-                            else Color.White.copy(alpha = if (lyrics.synced) 0.35f else 0.75f),
-                            label = "lyricColor",
+                        // Smoothly interpolate 0 (inactive) -> 1 (active) and drive scale + fade
+                        // off it, so the highlight glides between lines instead of snapping.
+                        // Fixed font size (no per-frame reflow) — emphasis comes from a gentle
+                        // center scale + fade, eased over a longer duration so it glides.
+                        val t by animateFloatAsState(
+                            targetValue = if (isActive) 1f else 0f,
+                            animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
+                            label = "lyricT",
                         )
+                        val baseAlpha = if (lyrics.synced) 0.35f else 0.85f
                         Text(
                             text = line.text.ifBlank { "♪" },
-                            color = color,
-                            fontSize = if (isActive) 30.sp else 23.sp,
-                            fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Bold,
-                            lineHeight = if (isActive) 36.sp else 30.sp,
+                            color = Color.White,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 32.sp,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .graphicsLayer {
+                                    val s = 1f + 0.08f * t   // bounded: stays within the side padding
+                                    scaleX = s
+                                    scaleY = s
+                                    alpha = baseAlpha + (1f - baseAlpha) * t
+                                }
                                 .then(
                                     if (lyrics.synced && line.timeMs != null) {
                                         Modifier.clickable { onSeekMs(line.timeMs) }
                                     } else Modifier,
                                 )
-                                .padding(vertical = 10.dp),
+                                .padding(vertical = 12.dp),
                         )
                     }
                 }

@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,8 +23,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.musicsm.R
 import com.example.musicsm.playback.PlayerState
 import com.example.musicsm.ui.theme.GlassFillStrong
 import com.example.musicsm.ui.theme.OnDarkVariant
@@ -44,18 +48,18 @@ fun MiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(50),
         tint = GlassFillStrong,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(60.dp)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 10.dp),
+                .padding(start = 8.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ArtworkImage(url = song.artworkUrl, shape = RoundedCornerShape(8.dp), modifier = Modifier.size(40.dp))
+            ArtworkImage(url = song.artworkUrl, shape = CircleShape, modifier = Modifier.size(44.dp))
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -74,14 +78,22 @@ fun MiniPlayer(
                 )
             }
             IconButton(onClick = onTogglePlay) {
-                Icon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
+                if (state.isBuffering) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
             IconButton(onClick = onNext, enabled = state.hasNext) {
-                Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = MaterialTheme.colorScheme.onSurface)
+                Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.player_next), tint = MaterialTheme.colorScheme.onSurface)
             }
         }
     }

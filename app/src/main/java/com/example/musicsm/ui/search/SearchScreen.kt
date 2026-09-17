@@ -3,11 +3,17 @@ package com.example.musicsm.ui.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +23,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -26,30 +33,45 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.musicsm.R
 import com.example.musicsm.domain.model.SearchResults
 import com.example.musicsm.domain.model.Song
+import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.components.AlbumCard
 import com.example.musicsm.ui.components.ArtistCircle
 import com.example.musicsm.ui.components.BrowseTileCard
+import com.example.musicsm.ui.components.EmptyState
+import com.example.musicsm.ui.components.ErrorState
 import com.example.musicsm.ui.components.GlassPanel
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.SectionHeader
 import com.example.musicsm.ui.components.SongRow
 import com.example.musicsm.ui.components.rememberDominantColorState
+import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.SpotifyGreen
 
 @Composable
 fun SearchScreen(
+    playerViewModel: PlayerViewModel,
     onPlaySong: (Song) -> Unit,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
@@ -58,6 +80,9 @@ fun SearchScreen(
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val recents by viewModel.recentSearches.collectAsStateWithLifecycle()
+    val keyboard = LocalSoftwareKeyboardController.current
+    var optionsSong by remember { mutableStateOf<Song?>(null) }
 
     // Tint the header by the top result's artwork (falls back to the accent).
     val firstArtwork = (state as? SearchUiState.Results)?.results?.let { r ->
@@ -81,7 +106,7 @@ fun SearchScreen(
                 },
         ) {
             Text(
-                text = "Search",
+                text = stringResource(R.string.search_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -98,7 +123,14 @@ fun SearchScreen(
                     onValueChange = viewModel::onQueryChange,
                     singleLine = true,
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    placeholder = { Text("Songs, artists, albums") },
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            viewModel.onSubmit()
+                            keyboard?.hide()
+                        },
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
@@ -124,8 +156,16 @@ fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                        RecentSearches(
+                            recents = recents,
+                            onPick = { viewModel.onRecentSearchClick(it) },
+                            onRemove = { viewModel.removeRecentSearch(it) },
+                            onClearAll = { viewModel.clearRecentSearches() },
+                        )
+                    }
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
                         Text(
-                            "Browse all",
+                            stringResource(R.string.search_browse_all),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -145,13 +185,86 @@ fun SearchScreen(
                     modifier = Modifier.align(Alignment.Center),
                 )
 
-                is SearchUiState.Error -> Text(
-                    s.message,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                is SearchUiState.Error -> ErrorState(
+                    message = s.message,
+                    onRetry = viewModel::retry,
                     modifier = Modifier.align(Alignment.Center),
                 )
 
-                is SearchUiState.Results -> ResultsList(s.results, onPlaySong, onOpenAlbum, onOpenArtist)
+                is SearchUiState.Results -> ResultsList(
+                    results = s.results,
+                    onPlaySong = onPlaySong,
+                    onOpenAlbum = onOpenAlbum,
+                    onOpenArtist = onOpenArtist,
+                    onMore = { optionsSong = it },
+                )
+            }
+        }
+    }
+
+    optionsSong?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            playerViewModel = playerViewModel,
+            onDismiss = { optionsSong = null },
+        )
+    }
+}
+
+/** Chips for previous queries, shown above "Browse all" while the search box is empty. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun RecentSearches(
+    recents: List<String>,
+    onPick: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onClearAll: () -> Unit,
+) {
+    if (recents.isEmpty()) return
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                stringResource(R.string.search_recent),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                stringResource(R.string.action_clear),
+                style = MaterialTheme.typography.labelLarge,
+                color = SpotifyGreen,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClearAll).padding(6.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            recents.forEach { value ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onPick(value) }
+                        .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                ) {
+                    Text(
+                        value,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "Remove $value",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(RoundedCornerShape(50))
+                            .clickable { onRemove(value) },
+                    )
+                }
             }
         }
     }
@@ -163,12 +276,14 @@ private fun ResultsList(
     onPlaySong: (Song) -> Unit,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
+    onMore: (Song) -> Unit,
 ) {
     if (results.isEmpty) {
         Box(Modifier.fillMaxSize()) {
-            Text(
-                "No results",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            EmptyState(
+                icon = Icons.Filled.Search,
+                title = stringResource(R.string.search_empty_title),
+                subtitle = stringResource(R.string.search_empty_subtitle),
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -176,7 +291,7 @@ private fun ResultsList(
     }
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarPadding.current)) {
         if (results.artists.isNotEmpty()) {
-            item { SectionHeader("Artists") }
+            item { SectionHeader(stringResource(R.string.section_artists)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
                     items(results.artists) { artist ->
@@ -186,7 +301,7 @@ private fun ResultsList(
             }
         }
         if (results.albums.isNotEmpty()) {
-            item { SectionHeader("Albums") }
+            item { SectionHeader(stringResource(R.string.section_albums)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
                     items(results.albums) { album ->
@@ -196,9 +311,13 @@ private fun ResultsList(
             }
         }
         if (results.songs.isNotEmpty()) {
-            item { SectionHeader("Songs") }
-            items(results.songs) { song ->
-                SongRow(song = song, onClick = { onPlaySong(song) })
+            item { SectionHeader(stringResource(R.string.section_songs)) }
+            items(results.songs, key = { it.id }) { song ->
+                SongRow(
+                    song = song,
+                    onClick = { onPlaySong(song) },
+                    onMore = { onMore(song) },
+                )
             }
         }
     }

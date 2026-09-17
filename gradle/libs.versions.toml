@@ -26,6 +26,11 @@ kotlinxSerialization = "1.11.0"
 newpipeExtractor = "v0.26.5"
 haze = "1.6.10"
 
+# Wear OS companion
+wearCompose = "1.6.2"
+playServicesWearable = "20.0.1"
+wearRemoteInteractions = "1.2.0"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -76,6 +81,12 @@ newpipe-extractor = { group = "com.github.TeamNewPipe", name = "NewPipeExtractor
 # Glassmorphism (backdrop blur)
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials", version.ref = "haze" }
+
+# Wear OS companion
+androidx-wear-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "wearCompose" }
+androidx-wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "wearCompose" }
+androidx-wear-remote-interactions = { group = "androidx.wear", name = "wear-remote-interactions", version.ref = "wearRemoteInteractions" }
+play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 
 # Ktor + serialization (for :innertube module)
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }

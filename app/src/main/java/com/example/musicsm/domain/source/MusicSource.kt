@@ -28,6 +28,9 @@ interface MusicSource {
     /** Songs related to [songId], used to seed/extend the play queue (radio). */
     suspend fun relatedTo(songId: String): List<Song>
 
+    /** Metadata for a single track id, used by deep links and inbound shares. */
+    suspend fun song(songId: String): Song
+
     /** Resolve a fresh, directly-playable audio stream for [songId]. URLs are short-lived. */
     suspend fun resolveStream(songId: String): PlayableStream
 }

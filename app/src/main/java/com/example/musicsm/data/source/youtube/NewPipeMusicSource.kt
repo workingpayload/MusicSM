@@ -108,12 +108,26 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
             .mapNotNull { it.toSongOrNull() }
     }
 
+    override suspend fun song(songId: String): Song {
+        val info = StreamInfo.getInfo(youtube, watchUrl(songId))
+        return Song(
+            id = songId,
+            title = info.name.orEmpty(),
+            artist = info.uploaderName.orEmpty(),
+            artworkUrl = bestThumbnail(info.thumbnails),
+            durationMs = if (info.duration > 0) info.duration * 1000 else 0L,
+        )
+    }
+
     override suspend fun resolveStream(songId: String): PlayableStream {
         val info = StreamInfo.getInfo(youtube, watchUrl(songId))
-        val audio = info.audioStreams
-            .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && !it.content.isNullOrEmpty() }
+        // Highest-bitrate audio: prefer a directly-playable progressive stream, else any with a URL.
+        val playable = info.audioStreams.filter { !it.content.isNullOrEmpty() }
+        val audio = playable
+            .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
             .maxByOrNull(AudioStream::getAverageBitrate)
-            ?: error("No progressive audio stream for $songId")
+            ?: playable.maxByOrNull(AudioStream::getAverageBitrate)
+            ?: error("No audio stream for $songId")
         return PlayableStream(
             url = audio.content,
             mimeType = audio.format?.mimeType,

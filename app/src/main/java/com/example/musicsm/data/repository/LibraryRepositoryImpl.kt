@@ -1,12 +1,17 @@
 package com.example.musicsm.data.repository
 
+import com.example.musicsm.data.local.dao.ArtistDao
+import com.example.musicsm.data.local.dao.HistoryDao
 import com.example.musicsm.data.local.dao.LikeDao
 import com.example.musicsm.data.local.dao.PlaylistDao
 import com.example.musicsm.data.local.dao.SongDao
+import com.example.musicsm.data.local.entity.LikedArtistEntity
 import com.example.musicsm.data.local.entity.LikedSongEntity
+import com.example.musicsm.data.local.entity.PlayHistoryEntity
 import com.example.musicsm.data.local.entity.PlaylistSongCrossRef
 import com.example.musicsm.data.local.entity.toEntity
 import com.example.musicsm.data.local.entity.toSong
+import com.example.musicsm.domain.model.Artist
 import com.example.musicsm.domain.model.Playlist
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.domain.repository.LibraryRepository
@@ -21,7 +26,13 @@ class LibraryRepositoryImpl @Inject constructor(
     private val songDao: SongDao,
     private val likeDao: LikeDao,
     private val playlistDao: PlaylistDao,
+    private val artistDao: ArtistDao,
+    private val historyDao: HistoryDao,
 ) : LibraryRepository {
+
+    companion object {
+        private const val HISTORY_LIMIT = 20
+    }
 
     override fun likedSongs(): Flow<List<Song>> =
         likeDao.likedSongs().map { list -> list.map { it.toSong() } }
@@ -42,6 +53,30 @@ class LibraryRepositoryImpl @Inject constructor(
         } else {
             likeDao.like(LikedSongEntity(song.id, System.currentTimeMillis()))
         }
+    }
+
+    override fun likedArtists(): Flow<List<Artist>> =
+        artistDao.likedArtists().map { list ->
+            list.map { Artist(id = it.artistId, name = it.name, artworkUrl = it.artworkUrl) }
+        }
+
+    override fun isArtistLiked(artistId: String): Flow<Boolean> = artistDao.isLiked(artistId)
+
+    override suspend fun toggleArtistLike(artist: Artist) {
+        if (artistDao.isLikedNow(artist.id)) {
+            artistDao.unlike(artist.id)
+        } else {
+            artistDao.like(LikedArtistEntity(artist.id, artist.name, artist.artworkUrl, System.currentTimeMillis()))
+        }
+    }
+
+    override fun recentlyPlayed(): Flow<List<Song>> =
+        historyDao.recent().map { list -> list.map { it.toSong() } }
+
+    override suspend fun recordPlay(song: Song) {
+        songDao.upsert(song.toEntity())
+        historyDao.insert(PlayHistoryEntity(song.id, System.currentTimeMillis()))
+        historyDao.trim(HISTORY_LIMIT)
     }
 
     override suspend fun createPlaylist(name: String): Long =

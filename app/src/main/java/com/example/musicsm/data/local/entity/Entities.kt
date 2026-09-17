@@ -40,6 +40,28 @@ data class LikedSongEntity(
     val likedAt: Long,
 )
 
+@Entity(tableName = "liked_artists")
+data class LikedArtistEntity(
+    @PrimaryKey val artistId: String,
+    val name: String,
+    val artworkUrl: String?,
+    val likedAt: Long,
+)
+
+@Entity(tableName = "play_history")
+data class PlayHistoryEntity(
+    @PrimaryKey val songId: String,
+    val playedAt: Long,
+)
+
+@Entity(tableName = "downloads")
+data class DownloadEntity(
+    @PrimaryKey val songId: String,
+    val filePath: String,
+    val mimeType: String?,
+    val downloadedAt: Long,
+)
+
 fun SongEntity.toSong() = Song(
     id = songId,
     title = title,

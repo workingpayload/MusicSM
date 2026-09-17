@@ -1,5 +1,9 @@
 package com.example.musicsm.ui.importer
 
+import android.content.Context
+import com.example.musicsm.R
+import dagger.hilt.android.qualifiers.ApplicationContext
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.musicsm.domain.repository.PlaylistImportRepository
@@ -19,6 +23,7 @@ sealed interface ImportUiState {
 
 @HiltViewModel
 class ImportViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val repository: PlaylistImportRepository,
 ) : ViewModel() {
 
@@ -34,7 +39,7 @@ class ImportViewModel @Inject constructor(
             }
             _state.value = result.fold(
                 onSuccess = { ImportUiState.Done(it.name, it.matched, it.total) },
-                onFailure = { ImportUiState.Error(it.message ?: "Import failed") },
+                onFailure = { ImportUiState.Error(it.message ?: context.getString(R.string.import_error)) },
             )
         }
     }

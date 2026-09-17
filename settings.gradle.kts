@@ -25,4 +25,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MusicSM"
 include(":app")
+include(":wear")
  

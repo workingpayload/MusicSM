@@ -1,5 +1,9 @@
 package com.example.musicsm.ui.album
 
+import android.content.Context
+import com.example.musicsm.R
+import dagger.hilt.android.qualifiers.ApplicationContext
+
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -29,6 +33,7 @@ data class AlbumDetailUiState(
 
 @HiltViewModel
 class AlbumDetailViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
     private val libraryRepository: LibraryRepository,
     savedStateHandle: SavedStateHandle,
@@ -56,6 +61,9 @@ class AlbumDetailViewModel @Inject constructor(
         load()
     }
 
+    /** Re-fetch the album after a failure. */
+    fun retry() = load()
+
     private fun load() {
         viewModelScope.launch {
             _state.value = AlbumDetailUiState(loading = true)
@@ -71,7 +79,7 @@ class AlbumDetailViewModel @Inject constructor(
                     )
                 }
                 .onFailure {
-                    _state.value = AlbumDetailUiState(loading = false, error = "Couldn't load album")
+                    _state.value = AlbumDetailUiState(loading = false, error = context.getString(R.string.album_error))
                 }
         }
     }

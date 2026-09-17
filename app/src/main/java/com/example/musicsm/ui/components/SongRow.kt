@@ -1,6 +1,8 @@
 package com.example.musicsm.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,12 +19,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.musicsm.R
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.ui.theme.OnDarkVariant
 
-/** A track list item: artwork, title/artist, and an optional trailing action. */
+/**
+ * A track list item: artwork, title/artist, and an optional trailing action.
+ *
+ * When [onMore] is supplied the row also opens it on long press, so the options menu is
+ * reachable both ways.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongRow(
     song: Song,
@@ -31,10 +41,15 @@ fun SongRow(
     isCurrent: Boolean = false,
     onMore: (() -> Unit)? = null,
 ) {
+    val clickModifier = if (onMore != null) {
+        Modifier.combinedClickable(onClick = onClick, onLongClick = onMore)
+    } else {
+        Modifier.clickable(onClick = onClick)
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(clickModifier)
             .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -58,7 +73,7 @@ fun SongRow(
         }
         if (onMore != null) {
             IconButton(onClick = onMore) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = OnDarkVariant)
+                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.action_more), tint = OnDarkVariant)
             }
         }
     }

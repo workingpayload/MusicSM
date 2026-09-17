@@ -1,5 +1,6 @@
 package com.example.musicsm.ui.artist
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +34,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,18 +44,23 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.musicsm.R
 import com.example.musicsm.ui.components.AlbumCard
 import com.example.musicsm.ui.components.ArtworkImage
+import com.example.musicsm.ui.components.ErrorState
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.SectionHeader
 import com.example.musicsm.ui.components.SongRow
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.components.rememberDominantColorState
 import com.example.musicsm.ui.player.PlayerViewModel
+import com.example.musicsm.domain.model.Song
+import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
@@ -64,7 +75,10 @@ fun ArtistDetailScreen(
     modifier: Modifier = Modifier,
     viewModel: ArtistDetailViewModel = hiltViewModel(),
 ) {
+    BackHandler { onBack() }
     val ui by viewModel.state.collectAsStateWithLifecycle()
+    val liked by viewModel.liked.collectAsStateWithLifecycle()
+    var optionsSong by remember { mutableStateOf<Song?>(null) }
     val accent = rememberDominantColorState(
         url = ui.artworkUrl ?: ui.topSongs.firstOrNull()?.artworkUrl,
         fallback = accentColorFor(ui.name),
@@ -106,7 +120,7 @@ fun ArtistDetailScreen(
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBackIos,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.action_back),
                         tint = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(20.dp),
                     )
@@ -119,27 +133,32 @@ fun ArtistDetailScreen(
                 }
 
                 ui.error != null -> Box(Modifier.fillMaxSize()) {
-                    Text(ui.error!!, color = OnDarkVariant, modifier = Modifier.align(Alignment.Center))
+                    ErrorState(
+                        message = ui.error!!,
+                        onRetry = viewModel::retry,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
 
                 else -> LazyColumn(
                     contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarPadding.current),
                 ) {
-                    item { ArtistHeader(ui, playerViewModel) }
+                    item { ArtistHeader(ui, playerViewModel, liked, viewModel::toggleLike) }
 
                     if (ui.topSongs.isNotEmpty()) {
-                        item { SectionHeader("Top songs") }
+                        item { SectionHeader(stringResource(R.string.artist_top_songs)) }
                         itemsIndexed(ui.topSongs) { index, song ->
                             SongRow(
                                 song = song,
                                 onClick = { playerViewModel.play(ui.topSongs, index) },
+                                onMore = { optionsSong = song },
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                             )
                         }
                     }
 
                     if (ui.albums.isNotEmpty()) {
-                        item { SectionHeader("Albums") }
+                        item { SectionHeader(stringResource(R.string.section_albums)) }
                         item {
                             LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
                                 items(ui.albums) { album ->
@@ -152,10 +171,23 @@ fun ArtistDetailScreen(
             }
         }
     }
+
+    optionsSong?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            playerViewModel = playerViewModel,
+            onDismiss = { optionsSong = null },
+        )
+    }
 }
 
 @Composable
-private fun ArtistHeader(ui: ArtistDetailUiState, playerViewModel: PlayerViewModel) {
+private fun ArtistHeader(
+    ui: ArtistDetailUiState,
+    playerViewModel: PlayerViewModel,
+    liked: Boolean,
+    onToggleLike: () -> Unit,
+) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -181,7 +213,32 @@ private fun ArtistHeader(ui: ArtistDetailUiState, playerViewModel: PlayerViewMod
             )
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
+        // Follow / like pill.
+        Row(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(if (liked) Coral else SurfaceHighest.copy(alpha = 0.6f))
+                .clickable(onClick = onToggleLike)
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = stringResource(R.string.artist_follow_action),
+                tint = if (liked) Color.White else Coral,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                stringResource(if (liked) R.string.artist_following else R.string.artist_follow),
+                color = if (liked) Color.White else MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -199,7 +256,7 @@ private fun ArtistHeader(ui: ArtistDetailUiState, playerViewModel: PlayerViewMod
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Play", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.action_play), color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
             }
             Row(
                 modifier = Modifier
@@ -208,15 +265,14 @@ private fun ArtistHeader(ui: ArtistDetailUiState, playerViewModel: PlayerViewMod
                     .clip(CircleShape)
                     .background(SurfaceHighest.copy(alpha = 0.6f))
                     .clickable(enabled = ui.topSongs.isNotEmpty()) {
-                        playerViewModel.toggleShuffle()
-                        playerViewModel.play(ui.topSongs, 0)
+                        playerViewModel.shufflePlay(ui.topSongs)
                     },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Filled.Shuffle, contentDescription = null, tint = Coral, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Shuffle", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.action_shuffle), color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
             }
         }
     }

@@ -91,6 +91,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.newpipe.extractor)
 
+    // Wear OS companion (Data Layer)
+    implementation(libs.play.services.wearable)
+
     // Java 8+ API desugaring (NewPipeExtractor uses java.nio.file; minSdk 24)
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
 

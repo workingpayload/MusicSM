@@ -1,5 +1,6 @@
 package com.example.musicsm.navigation
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PlayCircle
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.ui.graphics.vector.ImageVector
 import android.net.Uri
+import com.example.musicsm.R
 
 /** Route constants + builders for the whole app. */
 object Routes {
@@ -23,6 +25,8 @@ object Routes {
     const val ARTIST = "artist/{artistId}"
     const val LOCAL_PLAYLIST = "local_playlist/{playlistId}"
     const val IMPORT = "import"
+    const val DOWNLOADS = "downloads"
+    const val SETTINGS = "settings"
 
     fun album(albumId: String) = "album/${Uri.encode(albumId)}"
     fun artist(artistId: String) = "artist/${Uri.encode(artistId)}"
@@ -40,11 +44,11 @@ object Routes {
 /** The three bottom-navigation tabs. */
 enum class TopLevelDestination(
     val route: String,
-    val label: String,
+    @param:StringRes val labelRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
-    HOME(Routes.HOME, "Listen", Icons.Filled.PlayCircle, Icons.Outlined.PlayCircle),
-    LIBRARY(Routes.LIBRARY, "Library", Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
-    SEARCH(Routes.SEARCH, "Search", Icons.Filled.Search, Icons.Outlined.Search),
+    HOME(Routes.HOME, R.string.nav_listen, Icons.Filled.PlayCircle, Icons.Outlined.PlayCircle),
+    LIBRARY(Routes.LIBRARY, R.string.nav_library, Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
+    SEARCH(Routes.SEARCH, R.string.nav_search, Icons.Filled.Search, Icons.Outlined.Search),
 }

@@ -1,5 +1,6 @@
 package com.example.musicsm.ui.player
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,6 +50,10 @@ fun ExpandedPlayer(
     var showLyrics by remember { mutableStateOf(false) }
     val lyricsState by viewModel.lyrics.collectAsStateWithLifecycle()
     val playerState by viewModel.state.collectAsStateWithLifecycle()
+
+    // Back closes the open overlay (lyrics/queue) first, revealing Now Playing again.
+    BackHandler(enabled = showQueue) { showQueue = false }
+    BackHandler(enabled = showLyrics) { showLyrics = false }
 
     Box(
         modifier = modifier

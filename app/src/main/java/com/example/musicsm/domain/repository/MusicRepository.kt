@@ -21,6 +21,9 @@ interface MusicRepository {
     suspend fun playlist(id: String): Playlist
     suspend fun relatedTo(songId: String): List<Song>
 
+    /** Metadata for a single track id (deep links, inbound shares). */
+    suspend fun song(songId: String): Song
+
     /** Real, freshly-updated trending music. */
     suspend fun trending(): List<Song>
 

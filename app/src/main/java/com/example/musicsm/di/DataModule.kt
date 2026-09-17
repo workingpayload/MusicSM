@@ -1,10 +1,12 @@
 package com.example.musicsm.di
 
+import com.example.musicsm.data.repository.DownloadRepositoryImpl
 import com.example.musicsm.data.repository.LibraryRepositoryImpl
 import com.example.musicsm.data.repository.LyricsRepositoryImpl
 import com.example.musicsm.data.repository.MusicRepositoryImpl
 import com.example.musicsm.data.repository.SpotifyImportRepositoryImpl
 import com.example.musicsm.data.source.youtube.NewPipeMusicSource
+import com.example.musicsm.domain.repository.DownloadRepository
 import com.example.musicsm.domain.repository.LibraryRepository
 import com.example.musicsm.domain.repository.LyricsRepository
 import com.example.musicsm.domain.repository.MusicRepository
@@ -39,4 +41,8 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindPlaylistImportRepository(impl: SpotifyImportRepositoryImpl): PlaylistImportRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDownloadRepository(impl: DownloadRepositoryImpl): DownloadRepository
 }

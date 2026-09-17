@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the launcher icon: jump straight to what people open the app for. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="resume"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_resume"
+        android:shortcutShortLabel="@string/shortcut_resume_short"
+        android:shortcutLongLabel="@string/shortcut_resume_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="musicsm://resume"
+            android:targetPackage="com.example.musicsm"
+            android:targetClass="com.example.musicsm.MainActivity" />
+
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="liked"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_liked"
+        android:shortcutShortLabel="@string/shortcut_liked_short"
+        android:shortcutLongLabel="@string/shortcut_liked_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="musicsm://liked"
+            android:targetPackage="com.example.musicsm"
+            android:targetClass="com.example.musicsm.MainActivity" />
+
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search_short"
+        android:shortcutLongLabel="@string/shortcut_search_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="musicsm://search"
+            android:targetPackage="com.example.musicsm"
+            android:targetClass="com.example.musicsm.MainActivity" />
+
+    </shortcut>
+
+</shortcuts>

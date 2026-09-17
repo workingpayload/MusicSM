@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">MusicSM</string>
+    <string name="nothing_playing">Nothing playing</string>
+    <string name="open_on_phone">Open on phone</string>
+    <string name="cd_play_pause">Play or pause</string>
+    <string name="cd_next">Next track</string>
+    <string name="cd_previous">Previous track</string>
+</resources>

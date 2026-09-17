@@ -41,6 +41,9 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun relatedTo(songId: String): List<Song> =
         withContext(Dispatchers.IO) { source.relatedTo(songId) }
 
+    override suspend fun song(songId: String): Song =
+        withContext(Dispatchers.IO) { source.song(songId) }
+
     override suspend fun trending(): List<Song> =
         withContext(Dispatchers.IO) { source.trending(20) }
 

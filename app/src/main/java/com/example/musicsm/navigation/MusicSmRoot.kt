@@ -1,5 +1,7 @@
 package com.example.musicsm.navigation
 
+import android.content.Context
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -13,8 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,12 +26,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.example.musicsm.R
+import com.example.musicsm.ui.util.isOnline
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -36,19 +42,33 @@ import androidx.navigation.compose.rememberNavController
 import com.example.musicsm.ui.components.GlassPanel
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.LocalHazeState
+import com.example.musicsm.ui.components.LocalSongNavigator
 import com.example.musicsm.ui.components.MiniPlayer
+import com.example.musicsm.ui.components.SongNavigator
 import com.example.musicsm.ui.components.glassBackdrop
 import com.example.musicsm.ui.components.rememberHazeState
+import com.example.musicsm.ui.player.DownloadStatusBar
 import com.example.musicsm.ui.player.ExpandedPlayer
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.GlassFillStrong
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
+/** Short-lived feedback for link handling; the app has no snackbar host at the root. */
+private fun toast(context: Context, text: String) {
+    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+}
+
 @Composable
-fun MusicSmRoot() {
+fun MusicSmRoot(
+    appIntents: StateFlow<AppIntent?>? = null,
+    onIntentHandled: () -> Unit = {},
+) {
     val navController = rememberNavController()
     val playerViewModel: PlayerViewModel = hiltViewModel()
+    val intentViewModel: AppIntentViewModel = hiltViewModel()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
 
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -56,7 +76,11 @@ fun MusicSmRoot() {
 
     val hazeState = rememberHazeState()
     val density = LocalDensity.current
+    val context = LocalContext.current
     var barHeight by remember { mutableStateOf(0.dp) }
+
+    // No internet on launch → open the Library (offline downloads) instead of an empty Home.
+    val startDestination = remember { if (isOnline(context)) Routes.HOME else Routes.LIBRARY }
 
     val scope = rememberCoroutineScope()
     // 0 = collapsed (mini player), 1 = fully expanded Now-Playing sheet.
@@ -85,9 +109,68 @@ fun MusicSmRoot() {
             scope.launch { expand.animateTo(if (expand.value > 0.35f) 1f else 0f, sheetSpring) }
         }
 
+        // Lets the song options sheet (and the player) jump to a detail page from anywhere;
+        // the player sheet slides away first so the destination isn't hidden behind it.
+        val songNavigator = remember(navController) {
+            SongNavigator(
+                openAlbum = { id ->
+                    collapse()
+                    navController.navigate(Routes.album(id))
+                },
+                openArtist = { id ->
+                    collapse()
+                    navController.navigate(Routes.artist(id))
+                },
+            )
+        }
+
+        // Switching bottom-nav tabs: single-top, restoring each tab's own back stack.
+        val navigateToTab: (String) -> Unit = { route ->
+            navController.navigate(route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+
+        // Launcher shortcuts, deep links, shared YouTube links, widget/tile taps, voice search.
+        LaunchedEffect(appIntents) {
+            appIntents?.filterNotNull()?.collect { appIntent ->
+                onIntentHandled()
+                when (appIntent) {
+                    AppIntent.Resume -> {
+                        if (playerViewModel.resumePlayback()) expandNow()
+                    }
+                    is AppIntent.OpenTab -> navigateToTab(appIntent.route)
+                    is AppIntent.Search -> {
+                        intentViewModel.prefillSearch(appIntent.query)
+                        navigateToTab(Routes.SEARCH)
+                        if (appIntent.playFirst && appIntent.query.isNotBlank()) {
+                            if (playerViewModel.searchAndPlay(appIntent.query)) expandNow()
+                        }
+                    }
+                    is AppIntent.PlaySong -> {
+                        if (playerViewModel.playSongId(appIntent.songId)) {
+                            expandNow()
+                        } else {
+                            toast(context, context.getString(R.string.error_open_track))
+                        }
+                    }
+                    is AppIntent.OpenAlbum -> navController.navigate(Routes.album(appIntent.albumId))
+                    is AppIntent.OpenArtist -> navController.navigate(Routes.artist(appIntent.artistId))
+                    is AppIntent.OpenPlaylist ->
+                        navController.navigate(Routes.localPlaylist(appIntent.playlistId))
+                    AppIntent.OpenLiked -> navController.navigate(Routes.liked())
+                    AppIntent.OpenDownloads -> navController.navigate(Routes.DOWNLOADS)
+                    is AppIntent.Unsupported -> toast(context, appIntent.text)
+                }
+            }
+        }
+
         CompositionLocalProvider(
             LocalHazeState provides hazeState,
             LocalBottomBarPadding provides barHeight,
+            LocalSongNavigator provides songNavigator,
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 // Content fills the whole screen and registers as the blur source.
@@ -95,6 +178,7 @@ fun MusicSmRoot() {
                     navController = navController,
                     playerViewModel = playerViewModel,
                     onExpandPlayer = { expandNow() },
+                    startDestination = startDestination,
                     modifier = Modifier
                         .fillMaxSize()
                         .glassBackdrop(hazeState),
@@ -107,6 +191,12 @@ fun MusicSmRoot() {
                         .fillMaxWidth()
                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
                 ) {
+                    // Wavy download progress + completion toast, above the mini player.
+                    DownloadStatusBar(
+                        onClick = { navController.navigate(Routes.DOWNLOADS) },
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+
                     if (hasSong) {
                         MiniPlayer(
                             state = playerState,
@@ -130,29 +220,26 @@ fun MusicSmRoot() {
                         )
                     }
                     GlassPanel(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RectangleShape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .navigationBarsPadding()
+                            .padding(bottom = 10.dp),
+                        shape = RoundedCornerShape(50),
                         tint = GlassFillStrong,
                     ) {
-                        Column(modifier = Modifier.navigationBarsPadding()) {
-                            BottomNavBar(
-                                currentRoute = currentRoute,
-                                onNavigate = { dest ->
-                                    navController.navigate(dest.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                            )
-                        }
+                        BottomNavBar(
+                            currentRoute = currentRoute,
+                            onNavigate = { dest -> navigateToTab(dest.route) },
+                        )
                     }
                 }
 
                 // Full-screen expanding player — always composed, slides over everything.
                 if (hasSong) {
+                    // Composed BEFORE the player so the player's own back handlers (lyrics/queue)
+                    // take priority; this one only collapses when nothing inner is showing.
+                    BackHandler(enabled = expand.value > 0.01f) { collapse() }
                     ExpandedPlayer(
                         viewModel = playerViewModel,
                         progress = { expand.value },
@@ -161,7 +248,6 @@ fun MusicSmRoot() {
                         onDragFinished = { onDragFinished() },
                         modifier = Modifier.fillMaxSize(),
                     )
-                    BackHandler(enabled = expand.value > 0.01f) { collapse() }
                 }
             }
         }

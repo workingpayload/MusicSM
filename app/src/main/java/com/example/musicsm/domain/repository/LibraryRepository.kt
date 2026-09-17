@@ -1,16 +1,26 @@
 package com.example.musicsm.domain.repository
 
+import com.example.musicsm.domain.model.Artist
 import com.example.musicsm.domain.model.Playlist
 import com.example.musicsm.domain.model.Song
 import kotlinx.coroutines.flow.Flow
 
-/** User's local library: liked songs + user-created playlists, persisted in Room. */
+/** User's local library: liked songs/artists, playlists, and play history, persisted in Room. */
 interface LibraryRepository {
     fun likedSongs(): Flow<List<Song>>
     fun playlists(): Flow<List<Playlist>>
     fun isLiked(songId: String): Flow<Boolean>
 
     suspend fun toggleLike(song: Song)
+
+    // Liked artists.
+    fun likedArtists(): Flow<List<Artist>>
+    fun isArtistLiked(artistId: String): Flow<Boolean>
+    suspend fun toggleArtistLike(artist: Artist)
+
+    // Play history (most-recent first, capped).
+    fun recentlyPlayed(): Flow<List<Song>>
+    suspend fun recordPlay(song: Song)
 
     /** @return the new playlist's id. */
     suspend fun createPlaylist(name: String): Long

@@ -37,8 +37,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.musicsm.R
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.GlassStroke
 import com.example.musicsm.ui.theme.GlassStrokeSoft
@@ -131,7 +133,7 @@ fun PlayPauseButton(
             ) { playing ->
                 Icon(
                     imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (playing) "Pause" else "Play",
+                    contentDescription = stringResource(if (playing) R.string.action_pause else R.string.action_play),
                     tint = Color.White,
                     modifier = Modifier.size(size * 0.5f),
                 )

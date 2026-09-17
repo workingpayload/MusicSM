@@ -31,8 +31,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.musicsm.R
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.OnDarkVariant
 import kotlin.random.Random
@@ -163,7 +165,7 @@ fun DinoGame(modifier: Modifier = Modifier) {
         if (gameOver) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "Game over • tap to restart",
+                    stringResource(R.string.game_over),
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.titleSmall,
@@ -171,7 +173,7 @@ fun DinoGame(modifier: Modifier = Modifier) {
             }
         } else {
             Text(
-                "Tap to jump",
+                stringResource(R.string.game_tap_to_jump),
                 color = OnDarkVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(12.dp).align(Alignment.TopStart),

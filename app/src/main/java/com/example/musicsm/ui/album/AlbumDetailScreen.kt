@@ -1,5 +1,6 @@
 package com.example.musicsm.ui.album
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,10 +20,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -34,6 +38,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,12 +48,17 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.musicsm.R
+import com.example.musicsm.domain.model.Song
+import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.components.ArtworkImage
+import com.example.musicsm.ui.components.ErrorState
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.components.rememberDominantColorState
@@ -67,11 +79,14 @@ fun AlbumDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AlbumDetailViewModel = hiltViewModel(),
+    downloadViewModel: com.example.musicsm.ui.player.DownloadViewModel = hiltViewModel(),
 ) {
+    BackHandler { onBack() }
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val favorited by viewModel.favorited.collectAsStateWithLifecycle()
     val added by viewModel.added.collectAsStateWithLifecycle()
+    var optionsSong by remember { mutableStateOf<Song?>(null) }
     val accent = rememberDominantColorState(
         url = ui.artworkUrl ?: ui.songs.firstOrNull()?.artworkUrl,
         fallback = accentColorFor(ui.title),
@@ -108,7 +123,11 @@ fun AlbumDetailScreen(
                 }
 
                 ui.error != null -> Box(Modifier.fillMaxSize()) {
-                    Text(ui.error!!, color = OnDarkVariant, modifier = Modifier.align(Alignment.Center))
+                    ErrorState(
+                        message = ui.error!!,
+                        onRetry = viewModel::retry,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
 
                 else -> LazyColumn(
@@ -127,11 +146,12 @@ fun AlbumDetailScreen(
                             added = added,
                             onToggleFavorite = viewModel::toggleFavorite,
                             onToggleAdd = viewModel::toggleAdd,
+                            onDownloadAll = { ui.songs.forEach(downloadViewModel::download) },
                         )
                     }
                     item {
                         Text(
-                            "Tracks",
+                            stringResource(R.string.album_tracks),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = OnDarkVariant,
@@ -139,7 +159,7 @@ fun AlbumDetailScreen(
                         )
                     }
                     if (ui.songs.isEmpty()) {
-                        item { Text("No songs", color = OnDarkVariant, modifier = Modifier.padding(vertical = 8.dp)) }
+                        item { Text(stringResource(R.string.album_no_songs), color = OnDarkVariant, modifier = Modifier.padding(vertical = 8.dp)) }
                     } else {
                         itemsIndexed(ui.songs) { index, song ->
                             val isCurrent = playerState.currentSong?.id == song.id
@@ -151,12 +171,21 @@ fun AlbumDetailScreen(
                                 isCurrent = isCurrent,
                                 isPlaying = isCurrent && playerState.isPlaying,
                                 onClick = { playerViewModel.play(ui.songs, index) },
+                                onLongClick = { optionsSong = song },
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    optionsSong?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            playerViewModel = playerViewModel,
+            onDismiss = { optionsSong = null },
+        )
     }
 }
 
@@ -176,14 +205,14 @@ private fun TopBar(onBack: () -> Unit) {
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBackIos,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.action_back),
                 tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(20.dp),
             )
         }
         Spacer(Modifier.width(8.dp))
         Text(
-            "View Album",
+            stringResource(R.string.album_view_album),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -200,6 +229,7 @@ private fun AlbumHeader(
     added: Boolean,
     onToggleFavorite: () -> Unit,
     onToggleAdd: () -> Unit,
+    onDownloadAll: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -241,7 +271,7 @@ private fun AlbumHeader(
         )
 
         Spacer(Modifier.height(24.dp))
-        ActionCluster(ui, playerViewModel, favorited, added, onToggleFavorite, onToggleAdd)
+        ActionCluster(ui, playerViewModel, favorited, added, onToggleFavorite, onToggleAdd, onDownloadAll)
     }
 }
 
@@ -253,58 +283,97 @@ private fun ActionCluster(
     added: Boolean,
     onToggleFavorite: () -> Unit,
     onToggleAdd: () -> Unit,
+    onDownloadAll: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Play + Shuffle pills get the full width to themselves.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PillButton(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.PlayArrow,
+                iconTint = Color.White,
+                label = stringResource(R.string.action_play),
+                labelColor = Color.White,
+                background = Coral,
+                enabled = ui.songs.isNotEmpty(),
+                onClick = { playerViewModel.play(ui.songs, 0) },
+            )
+            PillButton(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.Shuffle,
+                iconTint = Coral,
+                label = stringResource(R.string.action_shuffle),
+                labelColor = MaterialTheme.colorScheme.onBackground,
+                background = SurfaceHighest.copy(alpha = 0.6f),
+                enabled = ui.songs.isNotEmpty(),
+                onClick = { playerViewModel.shufflePlay(ui.songs) },
+            )
+        }
+        // Secondary actions on their own row.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircleIconButton(
+                icon = if (added) Icons.Filled.Check else Icons.Filled.Add,
+                tint = if (added) Teal else MaterialTheme.colorScheme.onBackground,
+                contentDescription = stringResource(R.string.album_add_to_library),
+                onClick = onToggleAdd,
+            )
+            CircleIconButton(
+                icon = if (favorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                tint = if (favorited) Coral else MaterialTheme.colorScheme.onBackground,
+                contentDescription = stringResource(R.string.album_favorite),
+                onClick = onToggleFavorite,
+            )
+            CircleIconButton(
+                icon = Icons.Filled.Download,
+                tint = MaterialTheme.colorScheme.onBackground,
+                contentDescription = stringResource(R.string.album_download),
+                onClick = onDownloadAll,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PillButton(
+    modifier: Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    label: String,
+    labelColor: Color,
+    background: Color,
+    enabled: Boolean,
+    onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .height(48.dp)
+            .clip(CircleShape)
+            .background(background)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Play pill.
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .height(48.dp)
-                .clip(CircleShape)
-                .background(Coral)
-                .clickable(enabled = ui.songs.isNotEmpty()) { playerViewModel.play(ui.songs, 0) },
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Play", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
-        }
-        // Shuffle pill.
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .height(48.dp)
-                .clip(CircleShape)
-                .background(SurfaceHighest.copy(alpha = 0.6f))
-                .clickable(enabled = ui.songs.isNotEmpty()) {
-                    playerViewModel.toggleShuffle()
-                    playerViewModel.play(ui.songs, 0)
-                },
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Filled.Shuffle, contentDescription = null, tint = Coral, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Shuffle", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
-        }
-        // Add to library (creates/removes a playlist named after the album).
-        CircleIconButton(
-            icon = if (added) Icons.Filled.Check else Icons.Filled.Add,
-            tint = if (added) Teal else MaterialTheme.colorScheme.onBackground,
-            contentDescription = "Add to library",
-            onClick = onToggleAdd,
-        )
-        // Favorite (likes/unlikes all album tracks).
-        CircleIconButton(
-            icon = if (favorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            tint = if (favorited) Coral else MaterialTheme.colorScheme.onBackground,
-            contentDescription = "Favorite",
-            onClick = onToggleFavorite,
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            label,
+            color = labelColor,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -328,6 +397,7 @@ private fun CircleIconButton(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TrackRow(
     index: Int,
@@ -337,13 +407,14 @@ private fun TrackRow(
     isCurrent: Boolean,
     isPlaying: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(if (isCurrent) SurfaceHigh.copy(alpha = 0.8f) else Color.Transparent)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

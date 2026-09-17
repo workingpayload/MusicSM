@@ -20,8 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.musicsm.R
 import com.example.musicsm.domain.model.Playlist
 
 /** Bottom sheet to add a song to an existing playlist or create a new one. */
@@ -36,7 +38,7 @@ fun AddToPlaylistSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(
-                text = "Add to playlist",
+                text = stringResource(R.string.add_to_playlist),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -51,7 +53,7 @@ fun AddToPlaylistSheet(
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(16.dp))
-                Text("New playlist", color = MaterialTheme.colorScheme.onSurface)
+                Text(stringResource(R.string.library_new_playlist), color = MaterialTheme.colorScheme.onSurface)
             }
             LazyColumn {
                 items(playlists) { playlist ->

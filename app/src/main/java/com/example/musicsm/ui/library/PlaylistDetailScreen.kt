@@ -1,6 +1,7 @@
 package com.example.musicsm.ui.library
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -48,15 +51,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.musicsm.R
 import com.example.musicsm.ui.components.ArtworkImage
+import com.example.musicsm.ui.components.EmptyState
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.SongRow
+import com.example.musicsm.ui.components.SortMenuButton
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.components.rememberDominantColorState
+import com.example.musicsm.ui.actions.SongExtraAction
+import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.OnDarkVariant
@@ -67,13 +76,17 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
+    downloadViewModel: com.example.musicsm.ui.player.DownloadViewModel = hiltViewModel(),
 ) {
     val ui by viewModel.state.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
     val accent = rememberDominantColorState(
         url = ui.songs.firstOrNull()?.artworkUrl,
         fallback = accentColorFor(ui.title),
     )
     var showDelete by remember { mutableStateOf(false) }
+    var optionsSong by remember { mutableStateOf<com.example.musicsm.domain.model.Song?>(null) }
+    BackHandler { onBack() }
     val context = LocalContext.current
     val pickCover = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
@@ -94,12 +107,22 @@ fun PlaylistDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = MaterialTheme.colorScheme.onBackground)
             }
             Spacer(Modifier.weight(1f))
+            if (ui.songs.isNotEmpty()) {
+                SortMenuButton(
+                    current = sort,
+                    onSelect = viewModel::setSort,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                )
+                IconButton(onClick = { downloadViewModel.downloadAll(ui.songs) }) {
+                    Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.playlist_download_all), tint = MaterialTheme.colorScheme.onBackground)
+                }
+            }
             if (!ui.isLiked) {
                 IconButton(onClick = { showDelete = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete playlist", tint = MaterialTheme.colorScheme.onBackground)
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.playlist_delete), tint = MaterialTheme.colorScheme.onBackground)
                 }
             }
         }
@@ -142,7 +165,7 @@ fun PlaylistDetailScreen(
                             if (!ui.isLiked && ui.artworkUrl == null) {
                                 Icon(
                                     Icons.Filled.AddPhotoAlternate,
-                                    contentDescription = "Add cover",
+                                    contentDescription = stringResource(R.string.playlist_add_cover),
                                     tint = Color.White,
                                     modifier = Modifier.size(28.dp),
                                 )
@@ -163,7 +186,7 @@ fun PlaylistDetailScreen(
                             )
                             if (!ui.isLiked) {
                                 Text(
-                                    text = if (ui.artworkUrl == null) "Add cover" else "Change cover",
+                                    text = stringResource(if (ui.artworkUrl == null) R.string.playlist_add_cover else R.string.playlist_change_cover),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.clickable { pickCover.launch(pickImageRequest()) },
@@ -182,14 +205,11 @@ fun PlaylistDetailScreen(
                 ) {
                     Surface(
                         onClick = {
-                            if (ui.songs.isNotEmpty()) {
-                                playerViewModel.toggleShuffle()
-                                playerViewModel.play(ui.songs, 0)
-                            }
+                            if (ui.songs.isNotEmpty()) playerViewModel.shufflePlay(ui.songs)
                         },
                         color = Color.Transparent,
                     ) {
-                        Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle play", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(28.dp))
+                        Icon(Icons.Filled.Shuffle, contentDescription = stringResource(R.string.playlist_shuffle_play), tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(28.dp))
                     }
                     Spacer(Modifier.weight(1f))
                     Surface(
@@ -199,7 +219,7 @@ fun PlaylistDetailScreen(
                         modifier = Modifier.size(56.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.Black, modifier = Modifier.size(32.dp))
+                            Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play), tint = Color.Black, modifier = Modifier.size(32.dp))
                         }
                     }
                 }
@@ -207,10 +227,11 @@ fun PlaylistDetailScreen(
 
             if (ui.songs.isEmpty()) {
                 item {
-                    Text(
-                        "No songs yet",
-                        color = OnDarkVariant,
-                        modifier = Modifier.padding(16.dp),
+                    EmptyState(
+                        icon = Icons.Filled.MusicNote,
+                        title = stringResource(R.string.playlist_empty_title),
+                        subtitle = "Long-press any track and choose \u201CAdd to playlist\u201D.",
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             } else {
@@ -219,11 +240,12 @@ fun PlaylistDetailScreen(
                         SongRow(
                             song = song,
                             onClick = { playerViewModel.play(ui.songs, index) },
+                            onMore = { optionsSong = song },
                             modifier = Modifier.weight(1f),
                         )
                         if (!ui.isLiked) {
                             IconButton(onClick = { viewModel.remove(song) }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Remove", tint = OnDarkVariant)
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_remove), tint = OnDarkVariant)
                             }
                         }
                     }
@@ -232,10 +254,23 @@ fun PlaylistDetailScreen(
         }
     }
 
+    optionsSong?.let { song ->
+        SongOptionsSheet(
+            song = song,
+            playerViewModel = playerViewModel,
+            onDismiss = { optionsSong = null },
+            extraAction = if (ui.isLiked) null else SongExtraAction(
+                label = stringResource(R.string.playlist_remove_from),
+                destructive = true,
+                onAction = { viewModel.remove(song) },
+            ),
+        )
+    }
+
     if (showDelete) {
         AlertDialog(
             onDismissRequest = { showDelete = false },
-            title = { Text("Delete playlist?") },
+            title = { Text(stringResource(R.string.playlist_delete_confirm_title)) },
             text = { Text("\"${ui.title}\" will be removed from your library. This can't be undone.") },
             confirmButton = {
                 TextButton(
@@ -244,10 +279,10 @@ fun PlaylistDetailScreen(
                         viewModel.delete()
                         onBack()
                     },
-                ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                ) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showDelete = false }) { Text("Cancel") }
+                TextButton(onClick = { showDelete = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }

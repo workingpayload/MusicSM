@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -40,14 +43,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.musicsm.R
 import com.example.musicsm.domain.model.Playlist
+import com.example.musicsm.ui.components.AlbumCard
+import com.example.musicsm.ui.components.ArtistCircle
 import com.example.musicsm.ui.components.ArtworkImage
 import com.example.musicsm.ui.components.LocalBottomBarPadding
+import com.example.musicsm.ui.components.SectionHeader
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.Coral
@@ -60,11 +68,16 @@ fun LibraryScreen(
     onOpenLiked: () -> Unit,
     onOpenPlaylist: (Long) -> Unit,
     onImportPlaylist: () -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val liked by viewModel.likedSongs.collectAsStateWithLifecycle()
+    val recent by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
+    val followed by viewModel.followedArtists.collectAsStateWithLifecycle()
+    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
     var showCreate by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -83,7 +96,7 @@ fun LibraryScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Library",
+                    text = stringResource(R.string.library_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -95,7 +108,7 @@ fun LibraryScreen(
                         .clickable(onClick = onImportPlaylist)
                         .padding(8.dp),
                 ) {
-                    Icon(Icons.Filled.CloudDownload, contentDescription = "Import playlist", tint = MaterialTheme.colorScheme.onBackground)
+                    Icon(Icons.Filled.CloudDownload, contentDescription = stringResource(R.string.library_import_playlist), tint = MaterialTheme.colorScheme.onBackground)
                 }
                 Box(
                     modifier = Modifier
@@ -103,7 +116,15 @@ fun LibraryScreen(
                         .clickable { showCreate = true }
                         .padding(8.dp),
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = "New playlist", tint = MaterialTheme.colorScheme.onBackground)
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.library_new_playlist), tint = MaterialTheme.colorScheme.onBackground)
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onOpenSettings)
+                        .padding(8.dp),
+                ) {
+                    Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.action_settings), tint = MaterialTheme.colorScheme.onBackground)
                 }
             }
         }
@@ -117,7 +138,7 @@ fun LibraryScreen(
                     .background(SurfaceLow)
                     .padding(vertical = 6.dp),
             ) {
-                CategoryRow(Icons.Filled.Favorite, Coral, "Liked Songs", "${liked.size}", onOpenLiked)
+                CategoryRow(Icons.Filled.Favorite, Coral, stringResource(R.string.library_liked_songs), "${liked.size}", onOpenLiked)
             }
         }
 
@@ -127,17 +148,63 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                FilledChip("Shuffle All", Icons.Filled.Shuffle, filled = true) {
+                FilledChip(stringResource(R.string.library_shuffle_all), Icons.Filled.Shuffle, filled = true) {
                     playerViewModel.shufflePlay(liked)
                 }
-                FilledChip("Favorites Mix", Icons.Filled.Favorite, filled = false, onClick = onOpenLiked)
+                FilledChip(stringResource(R.string.library_favorites_mix), Icons.Filled.Favorite, filled = false, onClick = onOpenLiked)
+            }
+        }
+
+        // Recently played
+        if (recent.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.shelf_recently_played)) }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    itemsIndexed(recent) { index, song ->
+                        AlbumCard(
+                            title = song.title,
+                            subtitle = song.artist,
+                            artworkUrl = song.artworkUrl,
+                            onClick = { playerViewModel.play(recent, index) },
+                        )
+                    }
+                }
+            }
+        }
+
+        // Downloaded (offline)
+        if (downloads.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.shelf_downloaded)) }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    itemsIndexed(downloads) { index, song ->
+                        AlbumCard(
+                            title = song.title,
+                            subtitle = song.artist,
+                            artworkUrl = song.artworkUrl,
+                            onClick = { playerViewModel.play(downloads, index) },
+                        )
+                    }
+                }
+            }
+        }
+
+        // Followed artists
+        if (followed.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.library_followed_artists)) }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    items(followed) { artist ->
+                        ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
+                    }
+                }
             }
         }
 
         // Pinned Playlists header
         item {
             Text(
-                text = "Pinned Playlists",
+                text = stringResource(R.string.library_pinned_playlists),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -179,7 +246,7 @@ fun LibraryScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, tint = Coral, modifier = Modifier.size(20.dp))
-                    Text("New Custom Playlist", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.library_new_custom_playlist), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -283,7 +350,7 @@ private fun PlaylistGridCard(
                     .background(accent),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play), tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
         Text(
@@ -296,7 +363,7 @@ private fun PlaylistGridCard(
             modifier = Modifier.padding(top = 6.dp),
         )
         Text(
-            "Playlist",
+            stringResource(R.string.library_playlist),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -310,20 +377,20 @@ private fun CreatePlaylistDialog(onCreate: (String) -> Unit, onDismiss: () -> Un
     var name by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New playlist") },
+        title = { Text(stringResource(R.string.library_new_playlist)) },
         text = {
             TextField(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
-                placeholder = { Text("Playlist name") },
+                placeholder = { Text(stringResource(R.string.playlist_name_hint)) },
             )
         },
         confirmButton = {
-            TextButton(onClick = { onCreate(name) }, enabled = name.isNotBlank()) { Text("Create") }
+            TextButton(onClick = { onCreate(name) }, enabled = name.isNotBlank()) { Text(stringResource(R.string.action_create)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }

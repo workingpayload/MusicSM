@@ -15,8 +15,10 @@ import com.example.musicsm.ui.home.HomeScreen
 import com.example.musicsm.ui.importer.ImportPlaylistScreen
 import com.example.musicsm.ui.library.LibraryScreen
 import com.example.musicsm.ui.library.PlaylistDetailScreen
+import com.example.musicsm.ui.player.DownloadsScreen
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.search.SearchScreen
+import com.example.musicsm.ui.settings.SettingsScreen
 
 @Composable
 fun MusicSmNavHost(
@@ -24,11 +26,12 @@ fun MusicSmNavHost(
     playerViewModel: PlayerViewModel,
     onExpandPlayer: () -> Unit,
     modifier: Modifier = Modifier,
+    startDestination: String = Routes.HOME,
 ) {
     val dur = 300
     NavHost(
         navController = navController,
-        startDestination = Routes.HOME,
+        startDestination = startDestination,
         modifier = modifier,
         enterTransition = {
             slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur))
@@ -48,6 +51,7 @@ fun MusicSmNavHost(
         }
         composable(Routes.SEARCH) {
             SearchScreen(
+                playerViewModel = playerViewModel,
                 onPlaySong = { playerViewModel.playWithRadio(it) },
                 onOpenAlbum = { navController.navigate(Routes.album(it)) },
                 onOpenArtist = { navController.navigate(Routes.artist(it)) },
@@ -59,7 +63,18 @@ fun MusicSmNavHost(
                 onOpenLiked = { navController.navigate(Routes.liked()) },
                 onOpenPlaylist = { navController.navigate(Routes.localPlaylist(it)) },
                 onImportPlaylist = { navController.navigate(Routes.IMPORT) },
+                onOpenArtist = { navController.navigate(Routes.artist(it)) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
+        }
+        composable(
+            route = Routes.SETTINGS,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.IMPORT,
@@ -69,6 +84,15 @@ fun MusicSmNavHost(
             popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
         ) {
             ImportPlaylistScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = Routes.DOWNLOADS,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            DownloadsScreen(playerViewModel = playerViewModel, onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.ALBUM,
