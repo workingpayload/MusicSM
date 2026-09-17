@@ -25,9 +25,16 @@ android {
 
     buildTypes {
         release {
+            // R8 full mode: shrinks + optimises + obfuscates. Reflection-driven
+            // dependencies (NewPipeExtractor, Rhino, Room entities) are protected by
+            // proguard-rules.pro.
             optimization {
-                enable = false
+                enable = true
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
     compileOptions {
@@ -44,6 +51,12 @@ kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_17
     }
+}
+
+// Room writes the schema of every version here. Committing these lets Room verify migrations
+// in tests and gives a reviewable diff whenever the database shape changes.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

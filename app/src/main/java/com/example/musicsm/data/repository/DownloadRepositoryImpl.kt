@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -153,6 +154,9 @@ class DownloadRepositoryImpl @Inject constructor(
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", NewPipeDownloaderImpl.USER_AGENT)
+            // Track bodies are far too large for the shared response cache; keeping them out
+            // stops one download from evicting every cached metadata/lyrics response.
+            .cacheControl(CacheControl.Builder().noStore().build())
             .apply { if (existing > 0) header("Range", "bytes=$existing-") }
             .build()
         client.newCall(request).execute().use { resp ->

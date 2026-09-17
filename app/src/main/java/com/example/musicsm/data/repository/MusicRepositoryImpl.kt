@@ -65,7 +65,7 @@ class MusicRepositoryImpl @Inject constructor(
 
     override suspend fun resolveStream(songId: String): PlayableStream = withContext(Dispatchers.IO) {
         val cached = streamCache[songId]
-        if (cached != null && cached.expiresAtMs > System.currentTimeMillis() + REFRESH_MARGIN_MS) {
+        if (cached != null && isStreamUsable(cached.expiresAtMs, System.currentTimeMillis(), REFRESH_MARGIN_MS)) {
             cached
         } else {
             source.resolveStream(songId).also { streamCache[songId] = it }
@@ -93,3 +93,12 @@ class MusicRepositoryImpl @Inject constructor(
         )
     }
 }
+
+/**
+ * Whether a cached stream URL is still worth reusing. googlevideo URLs are time-limited, so a
+ * [marginMs] safety window means playback never starts with a URL that is about to expire.
+ *
+ * Top-level and internal so the expiry rule can be unit-tested without a real extractor.
+ */
+internal fun isStreamUsable(expiresAtMs: Long, nowMs: Long, marginMs: Long): Boolean =
+    expiresAtMs > nowMs + marginMs

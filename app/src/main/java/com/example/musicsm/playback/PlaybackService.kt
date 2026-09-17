@@ -101,6 +101,7 @@ class PlaybackService : MediaLibraryService() {
             this,
             player,
             MusicLibraryCallback(
+                context = this,
                 scope = serviceScope,
                 library = libraryRepository,
                 downloads = downloadRepository,

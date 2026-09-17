@@ -184,7 +184,7 @@ fun DownloadsScreen(
                         modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
                     )
                 }
-                itemsIndexed(downloads) { index, song ->
+                itemsIndexed(downloads, key = { _, song -> song.id }) { index, song ->
                     DownloadRow(
                         song = song,
                         onPlay = { playerViewModel.play(downloads, index) },

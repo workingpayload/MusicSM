@@ -147,7 +147,7 @@ fun ArtistDetailScreen(
 
                     if (ui.topSongs.isNotEmpty()) {
                         item { SectionHeader(stringResource(R.string.artist_top_songs)) }
-                        itemsIndexed(ui.topSongs) { index, song ->
+                        itemsIndexed(ui.topSongs, key = { _, song -> song.id }) { index, song ->
                             SongRow(
                                 song = song,
                                 onClick = { playerViewModel.play(ui.topSongs, index) },
@@ -161,7 +161,7 @@ fun ArtistDetailScreen(
                         item { SectionHeader(stringResource(R.string.section_albums)) }
                         item {
                             LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                                items(ui.albums) { album ->
+                                items(ui.albums, key = { it.id }) { album ->
                                     AlbumCard(album = album, onClick = { onOpenAlbum(album.id) })
                                 }
                             }

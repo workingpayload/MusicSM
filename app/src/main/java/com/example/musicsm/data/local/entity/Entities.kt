@@ -1,6 +1,7 @@
 package com.example.musicsm.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.musicsm.domain.model.Song
@@ -23,9 +24,27 @@ data class PlaylistEntity(
     val artworkUrl: String? = null,
 )
 
+/**
+ * Join table. Both sides cascade: deleting a playlist drops its membership rows, and deleting a
+ * song removes it from every playlist, so the library can never show a row pointing at nothing.
+ */
 @Entity(
     tableName = "playlist_songs",
     primaryKeys = ["playlistId", "songId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = PlaylistEntity::class,
+            parentColumns = ["playlistId"],
+            childColumns = ["playlistId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["songId"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
     indices = [Index("playlistId"), Index("songId")],
 )
 data class PlaylistSongCrossRef(
@@ -34,7 +53,17 @@ data class PlaylistSongCrossRef(
     val position: Int,
 )
 
-@Entity(tableName = "liked_songs")
+@Entity(
+    tableName = "liked_songs",
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["songId"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
 data class LikedSongEntity(
     @PrimaryKey val songId: String,
     val likedAt: Long,
@@ -48,13 +77,33 @@ data class LikedArtistEntity(
     val likedAt: Long,
 )
 
-@Entity(tableName = "play_history")
+@Entity(
+    tableName = "play_history",
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["songId"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
 data class PlayHistoryEntity(
     @PrimaryKey val songId: String,
     val playedAt: Long,
 )
 
-@Entity(tableName = "downloads")
+@Entity(
+    tableName = "downloads",
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["songId"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
 data class DownloadEntity(
     @PrimaryKey val songId: String,
     val filePath: String,

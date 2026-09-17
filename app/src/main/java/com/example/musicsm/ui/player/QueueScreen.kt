@@ -95,7 +95,7 @@ fun QueueScreen(
                 EmptyState(
                     icon = Icons.Filled.QueueMusic,
                     title = stringResource(R.string.queue_empty_title),
-                    subtitle = "Play something, or add tracks with \u201CAdd to queue\u201D.",
+                    subtitle = stringResource(R.string.queue_empty_subtitle),
                 )
             }
             return@Column

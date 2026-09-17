@@ -26,8 +26,8 @@ import com.example.musicsm.data.local.entity.SongEntity
         PlayHistoryEntity::class,
         DownloadEntity::class,
     ],
-    version = 4,
-    exportSchema = false,
+    version = 5,
+    exportSchema = true,
 )
 abstract class MusicDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao

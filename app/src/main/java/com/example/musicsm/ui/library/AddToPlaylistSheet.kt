@@ -56,7 +56,7 @@ fun AddToPlaylistSheet(
                 Text(stringResource(R.string.library_new_playlist), color = MaterialTheme.colorScheme.onSurface)
             }
             LazyColumn {
-                items(playlists) { playlist ->
+                items(playlists, key = { it.id }) { playlist ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

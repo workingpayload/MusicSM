@@ -112,6 +112,9 @@
     <!-- Queue -->
     <string name="queue_title">Queue</string>
     <string name="queue_empty_title">Queue is empty</string>
+    <string name="deeplink_not_a_track">That link isn\'t a YouTube track MusicSM can play</string>
+    <string name="deeplink_unsupported_youtube_link">MusicSM can only open YouTube track and playlist links</string>
+    <string name="queue_empty_subtitle">Play something, or add tracks with \u201CAdd to queue\u201D.</string>
     <string name="queue_drag_to_reorder">Drag to reorder</string>
     <string name="queue_remove_from">Remove from queue</string>
 

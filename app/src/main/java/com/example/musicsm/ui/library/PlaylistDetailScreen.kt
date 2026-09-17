@@ -235,7 +235,7 @@ fun PlaylistDetailScreen(
                     )
                 }
             } else {
-                itemsIndexed(ui.songs) { index, song ->
+                itemsIndexed(ui.songs, key = { _, song -> song.id }) { index, song ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         SongRow(
                             song = song,

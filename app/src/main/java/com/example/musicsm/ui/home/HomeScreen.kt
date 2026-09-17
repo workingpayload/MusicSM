@@ -188,7 +188,7 @@ private fun HomeContent(
         }
 
         // Shelves
-        items(sections) { section ->
+        items(sections, key = { it.title }) { section ->
             val songs = section.items.mapNotNull { (it as? HomeItem.SongItem)?.song }
             if (songs.isNotEmpty()) {
                 ShelfHeader(section.title, onSave = { onSaveShelf(section.title, songs) })

@@ -171,7 +171,7 @@ fun SearchScreen(
                             color = MaterialTheme.colorScheme.onBackground,
                         )
                     }
-                    items(s.tiles) { tile ->
+                    items(s.tiles, key = { it.id }) { tile ->
                         BrowseTileCard(
                             title = tile.title,
                             color = Color(tile.accentColor),
@@ -294,7 +294,7 @@ private fun ResultsList(
             item { SectionHeader(stringResource(R.string.section_artists)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    items(results.artists) { artist ->
+                    items(results.artists, key = { it.id }) { artist ->
                         ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
                     }
                 }
@@ -304,7 +304,7 @@ private fun ResultsList(
             item { SectionHeader(stringResource(R.string.section_albums)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    items(results.albums) { album ->
+                    items(results.albums, key = { it.id }) { album ->
                         AlbumCard(album = album, onClick = { onOpenAlbum(album.id) })
                     }
                 }

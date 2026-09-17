@@ -162,7 +162,7 @@ fun MusicSmRoot(
                         navController.navigate(Routes.localPlaylist(appIntent.playlistId))
                     AppIntent.OpenLiked -> navController.navigate(Routes.liked())
                     AppIntent.OpenDownloads -> navController.navigate(Routes.DOWNLOADS)
-                    is AppIntent.Unsupported -> toast(context, appIntent.text)
+                    is AppIntent.Unsupported -> toast(context, context.getString(appIntent.messageRes))
                 }
             }
         }

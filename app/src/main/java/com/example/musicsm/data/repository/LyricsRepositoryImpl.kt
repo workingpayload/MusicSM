@@ -21,12 +21,9 @@ import kotlin.math.abs
  * Matches by track + artist, then prefers synced lyrics whose duration is closest to the track.
  */
 @Singleton
-class LyricsRepositoryImpl @Inject constructor() : LyricsRepository {
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
+class LyricsRepositoryImpl @Inject constructor(
+    private val client: OkHttpClient,
+) : LyricsRepository {
 
     override suspend fun forSong(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         val track = clean(song.title)
@@ -93,39 +90,51 @@ class LyricsRepositoryImpl @Inject constructor() : LyricsRepository {
     }
 
     /** Parse an LRC blob into timestamped lines, expanding multi-timestamp lines. */
-    private fun parseLrc(lrc: String): List<LyricLine> {
-        val out = ArrayList<LyricLine>()
-        val tagRegex = Regex("""\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?]""")
-        for (raw in lrc.split("\n")) {
-            val matches = tagRegex.findAll(raw).toList()
-            if (matches.isEmpty()) continue
-            val text = raw.substring(matches.last().range.last + 1).trim()
-            for (m in matches) {
-                val min = m.groupValues[1].toLong()
-                val sec = m.groupValues[2].toLong()
-                val fracStr = m.groupValues[3]
-                val frac = when (fracStr.length) {
-                    0 -> 0L
-                    1 -> fracStr.toLong() * 100
-                    2 -> fracStr.toLong() * 10
-                    else -> fracStr.take(3).toLong()
-                }
-                val ms = (min * 60 + sec) * 1000 + frac
-                out.add(LyricLine(timeMs = ms, text = text))
-            }
-        }
-        return out.sortedBy { it.timeMs ?: 0L }
-    }
+    private fun parseLrc(lrc: String): List<LyricLine> = parseLrcLines(lrc)
 
     /** Strip common noise from YouTube titles/artists to improve matching. */
-    private fun clean(s: String): String {
-        var r = s
-        r = r.replace(Regex("""\((?:official|lyric|audio|video|visualizer|hd|4k|mv)[^)]*\)""", RegexOption.IGNORE_CASE), "")
-        r = r.replace(Regex("""\[[^]]*]"""), "")
-        r = r.replace(Regex(""" - Topic$""", RegexOption.IGNORE_CASE), "")
-        r = r.replace(Regex("""(?:official|lyric[s]?|audio|video|visualizer)""", RegexOption.IGNORE_CASE), "")
-        return r.replace(Regex("""\s+"""), " ").trim(' ', '-', '|', '·')
-    }
+    private fun clean(s: String): String = cleanTrackMetadata(s)
 
     private fun enc(s: String): String = URLEncoder.encode(s, "UTF-8")
+}
+
+/**
+ * Parse an LRC blob into timestamped lines. A single line may carry several timestamps
+ * (`[00:12.00][01:30.00]same words`), so each one becomes its own entry.
+ *
+ * Top-level and `internal` so it can be unit-tested without an HTTP client.
+ */
+internal fun parseLrcLines(lrc: String): List<LyricLine> {
+    val out = ArrayList<LyricLine>()
+    val tagRegex = Regex("""\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?]""")
+    for (raw in lrc.split("\n")) {
+        val matches = tagRegex.findAll(raw).toList()
+        if (matches.isEmpty()) continue
+        val text = raw.substring(matches.last().range.last + 1).trim()
+        for (m in matches) {
+            val min = m.groupValues[1].toLong()
+            val sec = m.groupValues[2].toLong()
+            val fracStr = m.groupValues[3]
+            // LRC fractions are hundredths by convention, but both 1 and 3 digits occur.
+            val frac = when (fracStr.length) {
+                0 -> 0L
+                1 -> fracStr.toLong() * 100
+                2 -> fracStr.toLong() * 10
+                else -> fracStr.take(3).toLong()
+            }
+            val ms = (min * 60 + sec) * 1000 + frac
+            out.add(LyricLine(timeMs = ms, text = text))
+        }
+    }
+    return out.sortedBy { it.timeMs ?: 0L }
+}
+
+/** Strip common noise from YouTube titles/artists ("(Official Video)", "- Topic", ...). */
+internal fun cleanTrackMetadata(s: String): String {
+    var r = s
+    r = r.replace(Regex("""\((?:official|lyric|audio|video|visualizer|hd|4k|mv)[^)]*\)""", RegexOption.IGNORE_CASE), "")
+    r = r.replace(Regex("""\[[^]]*]"""), "")
+    r = r.replace(Regex(""" - Topic$""", RegexOption.IGNORE_CASE), "")
+    r = r.replace(Regex("""(?:official|lyric[s]?|audio|video|visualizer)""", RegexOption.IGNORE_CASE), "")
+    return r.replace(Regex("""\s+"""), " ").trim(' ', '-', '|', '·')
 }

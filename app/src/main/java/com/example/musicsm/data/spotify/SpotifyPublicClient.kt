@@ -87,15 +87,22 @@ class SpotifyPublicClient @Inject constructor(
         return PublicPlaylist(name, cover, tracks)
     }
 
-    private fun extractPlaylistId(link: String): String? {
-        // Handles open.spotify.com/playlist/<id>?..., spotify:playlist:<id>, and bare ids.
-        Regex("playlist[/:]([A-Za-z0-9]+)").find(link)?.let { return it.groupValues[1] }
-        return link.trim().takeIf { it.matches(Regex("[A-Za-z0-9]{16,}")) }
-    }
+    private fun extractPlaylistId(link: String): String? = extractSpotifyPlaylistId(link)
 
     companion object {
         private const val BROWSER_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
+}
+
+/**
+ * Pull the playlist id out of anything a user might paste: a web link
+ * (`open.spotify.com/playlist/<id>?si=...`), a URI (`spotify:playlist:<id>`), or a bare id.
+ *
+ * Top-level and `internal` so it can be unit-tested without an HTTP client.
+ */
+internal fun extractSpotifyPlaylistId(link: String): String? {
+    Regex("playlist[/:]([A-Za-z0-9]+)").find(link)?.let { return it.groupValues[1] }
+    return link.trim().takeIf { it.matches(Regex("[A-Za-z0-9]{16,}")) }
 }

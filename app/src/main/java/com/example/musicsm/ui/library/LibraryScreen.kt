@@ -160,7 +160,7 @@ fun LibraryScreen(
             item { SectionHeader(stringResource(R.string.shelf_recently_played)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    itemsIndexed(recent) { index, song ->
+                    itemsIndexed(recent, key = { _, song -> song.id }) { index, song ->
                         AlbumCard(
                             title = song.title,
                             subtitle = song.artist,
@@ -177,7 +177,7 @@ fun LibraryScreen(
             item { SectionHeader(stringResource(R.string.shelf_downloaded)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    itemsIndexed(downloads) { index, song ->
+                    itemsIndexed(downloads, key = { _, song -> song.id }) { index, song ->
                         AlbumCard(
                             title = song.title,
                             subtitle = song.artist,
@@ -194,7 +194,7 @@ fun LibraryScreen(
             item { SectionHeader(stringResource(R.string.library_followed_artists)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    items(followed) { artist ->
+                    items(followed, key = { it.id }) { artist ->
                         ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
                     }
                 }
@@ -213,7 +213,7 @@ fun LibraryScreen(
         }
 
         // Playlist grid (2 columns)
-        items(playlists.chunked(2)) { row ->
+        items(playlists.chunked(2), key = { row -> row.first().id }) { row ->
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),

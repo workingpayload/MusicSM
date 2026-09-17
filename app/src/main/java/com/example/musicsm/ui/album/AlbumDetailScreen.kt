@@ -161,7 +161,7 @@ fun AlbumDetailScreen(
                     if (ui.songs.isEmpty()) {
                         item { Text(stringResource(R.string.album_no_songs), color = OnDarkVariant, modifier = Modifier.padding(vertical = 8.dp)) }
                     } else {
-                        itemsIndexed(ui.songs) { index, song ->
+                        itemsIndexed(ui.songs, key = { _, song -> song.id }) { index, song ->
                             val isCurrent = playerState.currentSong?.id == song.id
                             TrackRow(
                                 index = index + 1,

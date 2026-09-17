@@ -4,6 +4,8 @@ import android.app.SearchManager
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.annotation.StringRes
+import com.example.musicsm.R
 
 /**
  * Something the app was asked to do from outside: a launcher shortcut, a `musicsm://` deep link,
@@ -28,8 +30,8 @@ sealed interface AppIntent {
     data object OpenLiked : AppIntent
     data object OpenDownloads : AppIntent
 
-    /** The link was understood as "ours" but couldn't be used; surface [text] to the user. */
-    data class Unsupported(val text: String) : AppIntent
+    /** The link was understood as "ours" but couldn't be used; surface [messageRes] to the user. */
+    data class Unsupported(@param:StringRes val messageRes: Int) : AppIntent
 }
 
 /** Custom scheme for in-app links (`musicsm://song/<id>`). */
@@ -47,7 +49,7 @@ fun Intent?.toAppIntent(): AppIntent? {
             val url = FIRST_URL.find(shared)?.value?.trimEnd('.', ',', ')')
             when {
                 url != null -> appIntentFromUri(url.toUri())
-                    ?: AppIntent.Unsupported("That link isn't a YouTube track MusicSM can play")
+                    ?: AppIntent.Unsupported(R.string.deeplink_not_a_track)
                 // Plain text with no link: treat it as something to search for.
                 shared.isNotBlank() -> AppIntent.Search(shared.trim().take(120))
                 else -> null
@@ -98,7 +100,7 @@ private fun fromYouTubeUri(uri: Uri): AppIntent? {
 
     youTubeVideoId(host, uri)?.let { return AppIntent.PlaySong(it) }
     youTubePlaylistId(uri)?.let { return AppIntent.OpenAlbum(PLAYLIST_URL + it) }
-    return AppIntent.Unsupported("MusicSM can only open YouTube track and playlist links")
+    return AppIntent.Unsupported(R.string.deeplink_unsupported_youtube_link)
 }
 
 private fun youTubeVideoId(host: String, uri: Uri): String? {

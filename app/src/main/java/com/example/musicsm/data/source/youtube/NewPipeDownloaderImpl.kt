@@ -6,7 +6,6 @@ import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
-import java.util.concurrent.TimeUnit
 
 /**
  * OkHttp-backed [Downloader] required by NewPipeExtractor. Mirrors NewPipe's reference
@@ -67,12 +66,10 @@ class NewPipeDownloaderImpl private constructor(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-        val instance: NewPipeDownloaderImpl by lazy {
-            val client = OkHttpClient.Builder()
-                .readTimeout(30, TimeUnit.SECONDS)
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .build()
-            NewPipeDownloaderImpl(client)
-        }
+        /**
+         * Builds the downloader around the app-wide [OkHttpClient] so NewPipe shares the same
+         * connection pool and response cache as everything else.
+         */
+        fun create(client: OkHttpClient): NewPipeDownloaderImpl = NewPipeDownloaderImpl(client)
     }
 }

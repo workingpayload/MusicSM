@@ -1,5 +1,6 @@
 package com.example.musicsm.playback
 
+import android.content.Context
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
@@ -8,6 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import com.example.musicsm.R
 import com.example.musicsm.data.prefs.AppPreferences
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.domain.repository.DownloadRepository
@@ -29,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @OptIn(UnstableApi::class)
 class MusicLibraryCallback(
+    private val context: Context,
     private val scope: CoroutineScope,
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
@@ -45,7 +48,7 @@ class MusicLibraryCallback(
         params: MediaLibraryService.LibraryParams?,
     ): ListenableFuture<LibraryResult<MediaItem>> = immediate(
         LibraryResult.ofItem(
-            folder(ROOT, "MusicSM", MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
+            folder(ROOT, context.getString(R.string.browse_root), MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
             params,
         ),
     )
@@ -55,7 +58,7 @@ class MusicLibraryCallback(
         browser: MediaSession.ControllerInfo,
         mediaId: String,
     ): ListenableFuture<LibraryResult<MediaItem>> = future {
-        val item = CATEGORY_TITLES[mediaId]?.let { folder(mediaId, it) }
+        val item = CATEGORY_TITLES[mediaId]?.let { folder(mediaId, context.getString(it)) }
             ?: findSong(mediaId)?.let(::playable)
         if (item == null) {
             LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
@@ -146,10 +149,10 @@ class MusicLibraryCallback(
 
     private suspend fun childrenOf(parentId: String): List<MediaItem> = when (parentId) {
         ROOT -> listOf(
-            folder(LIKED, CATEGORY_TITLES.getValue(LIKED)),
-            folder(DOWNLOADS, CATEGORY_TITLES.getValue(DOWNLOADS)),
-            folder(RECENT, CATEGORY_TITLES.getValue(RECENT)),
-            folder(PLAYLISTS, CATEGORY_TITLES.getValue(PLAYLISTS)),
+            folder(LIKED, context.getString(CATEGORY_TITLES.getValue(LIKED))),
+            folder(DOWNLOADS, context.getString(CATEGORY_TITLES.getValue(DOWNLOADS))),
+            folder(RECENT, context.getString(CATEGORY_TITLES.getValue(RECENT))),
+            folder(PLAYLISTS, context.getString(CATEGORY_TITLES.getValue(PLAYLISTS))),
         )
         PLAYLISTS -> runCatching { library.playlists().first() }
             .getOrDefault(emptyList())
@@ -241,11 +244,11 @@ class MusicLibraryCallback(
         const val PLAYLIST_PREFIX = "playlist/"
 
         val CATEGORY_TITLES = mapOf(
-            ROOT to "MusicSM",
-            LIKED to "Liked songs",
-            DOWNLOADS to "Downloads",
-            RECENT to "Recently played",
-            PLAYLISTS to "Playlists",
+            ROOT to R.string.browse_root,
+            LIKED to R.string.browse_liked,
+            DOWNLOADS to R.string.browse_downloads,
+            RECENT to R.string.browse_recent,
+            PLAYLISTS to R.string.browse_playlists,
         )
     }
 }

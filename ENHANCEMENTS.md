@@ -225,7 +225,7 @@ Legend — Impact: 🔥 high · ✨ medium · 💤 low  |  Effort: S (hours) · 
 | **1 — Polish** | Make what exists feel finished | §0 quick wins, error/retry states, buffering UX, download notification fix | ✅ shipped |
 | **2 — Daily‑driver** | Things users hit every day | Queue persistence, sleep timer, settings screen, sort/filter, search history, download resume | ✅ shipped |
 | **3 — Reach** | Meet users where they are | Android Auto (`MediaLibraryService`), widget, shortcuts, deep links, share | ✅ shipped |
-| **4 — Scale** | Robustness & breadth | Localisation extraction, tablet/landscape, offline caching, tests + migrations, R8 | |
+| **4 — Scale** | Robustness & breadth | Localisation extraction, tablet/landscape, offline caching, tests + migrations, R8 | ✅ shipped |
 | **5 — Delight** | Differentiate | Stats, equalizer, crossfade, themes/Material You, visualiser | |
 
 ### Phase 2 — what landed
@@ -274,6 +274,26 @@ A new `:wear` Gradle module ships a watch app that remote‑controls the phone o
 | Optimistic play/pause | The watch flips its own icon immediately, then reconciles with the next data item |
 
 **Not done:** a Wear Tile / ongoing activity, standalone (LTE) playback, offline sync to the watch, and browsing the library from the wrist — the watch only controls what the phone is already playing.
+
+### Phase 4 — what landed
+
+| Item | Where |
+|---|---|
+| ~200 hardcoded strings + 6 plurals extracted from Compose/services into resources | `res/values/strings.xml`; call sites use `stringResource` / `pluralStringResource` |
+| Domain layer stays Android‑free | `SongSort` lost its `label: String`; the `@StringRes SongSort.labelRes` mapping lives in `ui/components/SortMenu.kt`. `TopLevelDestination` carries `labelRes` directly since it is already a UI type |
+| Browse‑tree and deep‑link messages localised | `MusicLibraryCallback` takes a `Context` and maps categories to string ids; `AppIntent.Unsupported` now carries a `@StringRes messageRes` |
+| Per‑app language picker (API 33+) | `res/xml/locales_config.xml` + `android:localeConfig`, with a Settings row launching `ACTION_APP_LOCALE_SETTINGS` |
+| Stable lazy‑list keys on 17 call sites | Home, Search, Library, Downloads, Album/Artist/Playlist detail, `AddToPlaylistSheet`. **`QueueScreen` is deliberately excluded** — a queue may legally hold the same song twice and a duplicate key crashes Compose |
+| One shared, cached `OkHttpClient` (was 4 instances) | `di/NetworkModule.kt` provides it with a 20 MB disk cache; `di/AppEntryPoint.kt` is the escape hatch for the non‑Hilt widget |
+| Explicit Coil image cache | `MusicSmApp` implements `SingletonImageLoader.Factory` — 20 % memory + 128 MB disk |
+| Large downloads no longer evict metadata | `DownloadRepositoryImpl` fetches tracks with `CacheControl.noStore()` |
+| R8 enabled for release — **29.1 MB → 5.6 MB** | `optimization { enable = true }` in `app/build.gradle.kts` + a full `proguard-rules.pro` keeping NewPipeExtractor, Rhino, jsoup, nanojson, Room entities, `WearContract` and manifest‑declared services |
+| Room foreign keys + `ON DELETE CASCADE` | `playlist_songs` (both columns), `liked_songs`, `play_history`, `downloads` in `data/local/entity/Entities.kt` |
+| DB v4 → v5 migration, schema export on | `MIGRATION_4_5` in `di/DatabaseModule.kt` rebuilds each table, drops orphans, and uses `PRAGMA defer_foreign_keys`; schemas land in `app/schemas/` |
+| Migration proven against real SQLite | `tools/migration_check.sql` replays v4 → v5 and asserts data preservation, orphan removal, schema shape, cascade behaviour and constraint enforcement |
+| 33 unit tests, all green | LRC parsing, track‑metadata cleaning, stream‑cache TTL, Spotify playlist‑id extraction and `SongSort` ordering, under `app/src/test/` |
+
+**Still open in §4:** tablet/landscape `WindowSizeClass` layouts, a baseline profile, ktlint/detekt, and renaming the `com.example.*` application id (which must change in `:app` and `:wear` together). The R8 release build compiles but wants a device smoke‑test, since NewPipe and Rhino are reflection‑heavy.
 
 ---
 

@@ -22,7 +22,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
+import com.example.musicsm.di.AppEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import okhttp3.Request
 import java.io.IOException
 import java.net.URL
@@ -34,7 +35,6 @@ import java.net.URL
 object NowPlayingWidget {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val http by lazy { OkHttpClient() }
 
     @Volatile
     private var artworkCache: Pair<String, Bitmap>? = null
@@ -53,7 +53,7 @@ object NowPlayingWidget {
 
         if (url != null && cached == null) {
             scope.launch {
-                val bitmap = loadArtwork(url) ?: return@launch
+                val bitmap = loadArtwork(context, url) ?: return@launch
                 artworkCache = url to bitmap
                 runCatching { manager.updateAppWidget(ids, buildViews(context, snapshot, bitmap)) }
             }
@@ -109,7 +109,10 @@ object NowPlayingWidget {
     )
 
     /** Downloads and downsamples the artwork, then rounds it to match the app's corners. */
-    private fun loadArtwork(url: String): Bitmap? = runCatching {
+    private fun loadArtwork(context: Context, url: String): Bitmap? = runCatching {
+        val http = EntryPointAccessors
+            .fromApplication(context.applicationContext, AppEntryPoint::class.java)
+            .okHttpClient()
         val request = Request.Builder().url(URL(url)).build()
         val bytes = http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
