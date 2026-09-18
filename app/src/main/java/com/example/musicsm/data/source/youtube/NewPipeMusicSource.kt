@@ -23,6 +23,7 @@ import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 
 /**
  * YouTube-backed [MusicSource] using NewPipeExtractor. All calls are blocking; the repository
@@ -67,13 +68,50 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
     }
 
     override suspend fun artist(id: String): Artist {
-        // [id] is the artist name; top songs come from a music search (channel tabs are unreliable).
-        val songs = runCatching { searchSongs(id, limit = 20) }.getOrDefault(emptyList())
+        // [id] is the artist name; channel tabs are unreliable, so the page is assembled from
+        // music searches. A keyword search matches the *title* as well as the uploader, which is
+        // how covers and "best of" compilations used to leak in — everything is therefore filtered
+        // down to uploads actually credited to this artist.
+        val candidates = runCatching {
+            searchItems(id, YoutubeSearchQueryHandlerFactory.MUSIC_SONGS, ARTIST_SCAN_LIMIT, ARTIST_MAX_PAGES)
+                .filterIsInstance<StreamInfoItem>()
+                .mapNotNull { it.toSongOrNull() }
+        }.getOrDefault(emptyList())
+
+        val (credited, rest) = candidates.partition { ArtistMatching.matches(it.artist, id) }
+        // Fall back to the unfiltered results rather than showing an empty page: some artists only
+        // ever appear under a label channel, which no uploader match can recognise.
+        val songs = credited.ifEmpty { rest }
+            .distinctBy { it.id }
+            // The same track is often up as both "Artist" and "Artist - Topic".
+            .distinctBy { ArtistMatching.normalize(it.title) }
+            .take(ARTIST_SONG_LIMIT)
+
+        val albums = runCatching {
+            searchItems(id, YoutubeSearchQueryHandlerFactory.MUSIC_ALBUMS, ARTIST_ALBUM_SCAN, pages = 1)
+                .filterIsInstance<PlaylistInfoItem>()
+                .filter { ArtistMatching.matches(it.uploaderName, id) }
+                .map { it.toAlbum() }
+                .distinctBy { it.id }
+                .take(ARTIST_ALBUM_LIMIT)
+        }.getOrDefault(emptyList())
+
+        // The artist's own channel has a real avatar and a subscriber count; a video thumbnail is
+        // only a fallback.
+        val channel = runCatching {
+            searchItems(id, YoutubeSearchQueryHandlerFactory.MUSIC_ARTISTS, limit = 3, pages = 1)
+                .filterIsInstance<ChannelInfoItem>()
+                .firstOrNull { ArtistMatching.matches(it.name, id) }
+        }.getOrNull()
+
         return Artist(
             id = id,
-            name = id,
-            artworkUrl = songs.firstOrNull()?.artworkUrl,
+            name = channel?.name?.takeIf { it.isNotBlank() } ?: id,
+            artworkUrl = channel?.let { bestThumbnail(it.thumbnails) }
+                ?: songs.firstOrNull()?.artworkUrl,
+            subscribers = channel?.subscriberCount?.takeIf { it >= 0 }?.let(::formatSubscribers),
             topSongs = songs,
+            albums = albums,
         )
     }
 
@@ -146,14 +184,14 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
     private fun searchAlbums(query: String, limit: Int): List<Album> =
         searchItems(query, YoutubeSearchQueryHandlerFactory.MUSIC_ALBUMS, limit)
             .filterIsInstance<PlaylistInfoItem>()
-            .map { item ->
-                Album(
-                    id = item.url,
-                    title = item.name.orEmpty(),
-                    artist = item.uploaderName.orEmpty(),
-                    artworkUrl = bestThumbnail(item.thumbnails),
-                )
-            }
+            .map { it.toAlbum() }
+
+    private fun PlaylistInfoItem.toAlbum() = Album(
+        id = url,
+        title = name.orEmpty(),
+        artist = uploaderName.orEmpty(),
+        artworkUrl = bestThumbnail(thumbnails),
+    )
 
     private fun searchArtists(query: String, limit: Int): List<Artist> =
         searchItems(query, YoutubeSearchQueryHandlerFactory.MUSIC_ARTISTS, limit)
@@ -166,11 +204,32 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
                 )
             }
 
-    private fun searchItems(query: String, contentFilter: String, limit: Int): List<InfoItem> {
+    /**
+     * Runs a search and collects up to [limit] items, following at most [pages] result pages.
+     *
+     * A single page is ~20 items, which is not a discography. Paging matters most for the artist
+     * screen, where the uploader filter discards a large share of what comes back.
+     */
+    private fun searchItems(
+        query: String,
+        contentFilter: String,
+        limit: Int,
+        pages: Int = 1,
+    ): List<InfoItem> {
         val handler = youtube.searchQHFactory.fromQuery(query, listOf(contentFilter), "")
         val extractor = youtube.getSearchExtractor(handler)
         extractor.fetchPage()
-        return extractor.initialPage.items.take(limit)
+
+        var page = extractor.initialPage
+        val items = ArrayList<InfoItem>(page.items)
+        var fetched = 1
+        while (items.size < limit && fetched < pages && page.hasNextPage()) {
+            // A failed continuation is not fatal — keep whatever has already been collected.
+            page = runCatching { extractor.getPage(page.nextPage) }.getOrNull() ?: break
+            items += page.items
+            fetched++
+        }
+        return items.take(limit)
     }
 
     private fun StreamInfoItem.toSongOrNull(): Song? {
@@ -204,8 +263,30 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
 
     private fun watchUrl(videoId: String) = "https://www.youtube.com/watch?v=$videoId"
 
+    /** "1234567" reads as nothing across a room; "1.2M" does. */
+    private fun formatSubscribers(count: Long): String {
+        fun scaled(value: Double, suffix: String): String {
+            val rounded = if (value >= 100) value.roundToInt().toString()
+            else String.format(java.util.Locale.US, "%.1f", value).removeSuffix(".0")
+            return rounded + suffix
+        }
+        return when {
+            count >= 1_000_000_000L -> scaled(count / 1e9, "B")
+            count >= 1_000_000L -> scaled(count / 1e6, "M")
+            count >= 1_000L -> scaled(count / 1e3, "K")
+            else -> count.toString()
+        }
+    }
+
     companion object {
         private const val STREAM_TTL_MS = 5 * 60 * 60 * 1000L // ~5h; googlevideo URLs expire ~6h
+
+        // Artist page: scan wide because the uploader filter throws a lot away, then trim.
+        private const val ARTIST_SCAN_LIMIT = 80
+        private const val ARTIST_MAX_PAGES = 4
+        private const val ARTIST_SONG_LIMIT = 50
+        private const val ARTIST_ALBUM_SCAN = 20
+        private const val ARTIST_ALBUM_LIMIT = 12
 
         // Curated genre/mood shelves. "Trending now" is served separately from the real
         // trending_music kiosk (see [trending]).
