@@ -45,6 +45,13 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests {
+            // The Jam socket tests drive JamServer/JamClient in-process, and those log through
+            // android.util.Log. Without this every Log call throws "not mocked" on the JVM.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 kotlin {
@@ -103,6 +110,9 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
     implementation(libs.okhttp)
     implementation(libs.newpipe.extractor)
+
+    // QR codes for playlist sharing
+    implementation(libs.zxing.core)
 
     // Wear OS companion (Data Layer)
     implementation(libs.play.services.wearable)

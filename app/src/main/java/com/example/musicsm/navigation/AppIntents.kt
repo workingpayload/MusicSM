@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import androidx.annotation.StringRes
 import com.example.musicsm.R
+import com.example.musicsm.domain.jam.JamInvite
 
 /**
  * Something the app was asked to do from outside: a launcher shortcut, a `musicsm://` deep link,
@@ -29,6 +30,12 @@ sealed interface AppIntent {
     data class OpenPlaylist(val playlistId: Long) : AppIntent
     data object OpenLiked : AppIntent
     data object OpenDownloads : AppIntent
+
+    /** A `musicsm://shared/playlist?d=…` link — the whole track list travels in [payload]. */
+    data class ImportSharedPlaylist(val payload: String) : AppIntent
+
+    /** A `musicsm://jam?…` link, scanned from a host's QR code or opened from a message. */
+    data class JoinJam(val invite: JamInvite) : AppIntent
 
     /** The link was understood as "ours" but couldn't be used; surface [messageRes] to the user. */
     data class Unsupported(@param:StringRes val messageRes: Int) : AppIntent
@@ -86,6 +93,15 @@ private fun fromAppUri(uri: Uri): AppIntent? {
         "album" -> arg?.let(AppIntent::OpenAlbum)
         "artist" -> arg?.let(AppIntent::OpenArtist)
         "playlist" -> arg?.toLongOrNull()?.let(AppIntent::OpenPlaylist)
+        // musicsm://shared/playlist?d=<payload> — produced by the QR / link share sheet.
+        "shared" -> uri.getQueryParameter("d")
+            ?.takeIf { it.isNotBlank() }
+            ?.let(AppIntent::ImportSharedPlaylist)
+            ?: AppIntent.Unsupported(R.string.shared_playlist_bad_link)
+        // musicsm://jam?h=…&p=…&t=…&n=… — produced by a Jam host's QR code.
+        "jam" -> JamInvite.parse(uri.toString())
+            ?.let(AppIntent::JoinJam)
+            ?: AppIntent.Unsupported(R.string.jam_error_connect)
         else -> null
     }
 }
@@ -121,4 +137,6 @@ private fun String.toUri(): Uri = Uri.parse(this)
 
 private const val PLAYLIST_URL = "https://www.youtube.com/playlist?list="
 private val VIDEO_PATHS = setOf("shorts", "embed", "live", "v")
-private val FIRST_URL = Regex("""https?://\S+""")
+
+/** Also matches our own scheme so a shared playlist link pasted into "Share to MusicSM" works. */
+private val FIRST_URL = Regex("""(?:https?|musicsm)://\S+""")

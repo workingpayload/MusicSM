@@ -27,6 +27,10 @@ object Routes {
     const val IMPORT = "import"
     const val DOWNLOADS = "downloads"
     const val SETTINGS = "settings"
+    const val STATS = "stats"
+    const val EQUALIZER = "equalizer"
+    const val SHARED_PLAYLIST = "shared_playlist"
+    const val JAM = "jam"
 
     fun album(albumId: String) = "album/${Uri.encode(albumId)}"
     fun artist(artistId: String) = "artist/${Uri.encode(artistId)}"

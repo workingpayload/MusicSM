@@ -18,7 +18,11 @@ import com.example.musicsm.ui.library.PlaylistDetailScreen
 import com.example.musicsm.ui.player.DownloadsScreen
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.search.SearchScreen
+import com.example.musicsm.ui.settings.EqualizerScreen
 import com.example.musicsm.ui.settings.SettingsScreen
+import com.example.musicsm.ui.jam.JamScreen
+import com.example.musicsm.ui.share.SharedPlaylistScreen
+import com.example.musicsm.ui.stats.StatsScreen
 
 @Composable
 fun MusicSmNavHost(
@@ -65,7 +69,53 @@ fun MusicSmNavHost(
                 onImportPlaylist = { navController.navigate(Routes.IMPORT) },
                 onOpenArtist = { navController.navigate(Routes.artist(it)) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenStats = { navController.navigate(Routes.STATS) },
             )
+        }
+        composable(
+            route = Routes.STATS,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            StatsScreen(
+                onBack = { navController.popBackStack() },
+                onPlaySongs = { songs, index -> playerViewModel.play(songs, index) },
+                onOpenSearch = {
+                    navController.navigate(Routes.SEARCH) {
+                        popUpTo(Routes.HOME)
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(
+            route = Routes.SHARED_PLAYLIST,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            SharedPlaylistScreen(
+                onBack = { navController.popBackStack() },
+                onOpenPlaylist = { id ->
+                    // Replace the preview: backing out should not offer to import again.
+                    navController.navigate(Routes.localPlaylist(id)) {
+                        popUpTo(Routes.SHARED_PLAYLIST) { inclusive = true }
+                    }
+                },
+                onPlay = { songs, index -> playerViewModel.play(songs, index) },
+            )
+        }
+        composable(
+            route = Routes.JAM,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            JamScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.SETTINGS,
@@ -74,7 +124,19 @@ fun MusicSmNavHost(
             popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
             popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
         ) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenEqualizer = { navController.navigate(Routes.EQUALIZER) },
+            )
+        }
+        composable(
+            route = Routes.EQUALIZER,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            EqualizerScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.IMPORT,

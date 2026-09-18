@@ -31,6 +31,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.musicsm.R
 import com.example.musicsm.ui.util.isOnline
@@ -48,6 +49,7 @@ import com.example.musicsm.ui.components.SongNavigator
 import com.example.musicsm.ui.components.glassBackdrop
 import com.example.musicsm.ui.components.rememberHazeState
 import com.example.musicsm.ui.player.DownloadStatusBar
+import com.example.musicsm.ui.player.AmbientScreen
 import com.example.musicsm.ui.player.ExpandedPlayer
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.AppBackground
@@ -78,6 +80,17 @@ fun MusicSmRoot(
     val density = LocalDensity.current
     val context = LocalContext.current
     var barHeight by remember { mutableStateOf(0.dp) }
+    // Ambient mode is an overlay, not a destination: it has to cover the player sheet, which is
+    // itself drawn above the nav host.
+    var ambientMode by remember { mutableStateOf(false) }
+    // Hoisted out of the intent handler below: resolving a string from a raw Context inside a
+    // composable bypasses Compose's configuration tracking.
+    val badLinkMessage = stringResource(R.string.shared_playlist_bad_link)
+
+    // Nothing to screensaver once playback is gone.
+    LaunchedEffect(playerState.currentSong == null) {
+        if (playerState.currentSong == null) ambientMode = false
+    }
 
     // No internet on launch → open the Library (offline downloads) instead of an empty Home.
     val startDestination = remember { if (isOnline(context)) Routes.HOME else Routes.LIBRARY }
@@ -162,6 +175,19 @@ fun MusicSmRoot(
                         navController.navigate(Routes.localPlaylist(appIntent.playlistId))
                     AppIntent.OpenLiked -> navController.navigate(Routes.liked())
                     AppIntent.OpenDownloads -> navController.navigate(Routes.DOWNLOADS)
+                    is AppIntent.ImportSharedPlaylist -> {
+                        if (intentViewModel.offerSharedPlaylist(appIntent.payload)) {
+                            collapse()
+                            navController.navigate(Routes.SHARED_PLAYLIST)
+                        } else {
+                            toast(context, badLinkMessage)
+                        }
+                    }
+                    is AppIntent.JoinJam -> {
+                        intentViewModel.joinJam(appIntent.invite)
+                        collapse()
+                        navController.navigate(Routes.JAM)
+                    }
                     is AppIntent.Unsupported -> toast(context, context.getString(appIntent.messageRes))
                 }
             }
@@ -246,6 +272,21 @@ fun MusicSmRoot(
                         onCollapse = { collapse() },
                         onDragDelta = onDragDelta,
                         onDragFinished = { onDragFinished() },
+                        onEnterAmbient = { ambientMode = true },
+                        onOpenJam = {
+                            collapse()
+                            navController.navigate(Routes.JAM)
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                // Ambient mode sits above even the player sheet — it is a screensaver, so nothing
+                // else may draw over it.
+                if (ambientMode && hasSong) {
+                    AmbientScreen(
+                        viewModel = playerViewModel,
+                        onExit = { ambientMode = false },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

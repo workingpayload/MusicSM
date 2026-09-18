@@ -210,9 +210,9 @@ Legend — Impact: 🔥 high · ✨ medium · 💤 low  |  Effort: S (hours) · 
 
 - **Listening stats & year‑in‑review** from `play_history`.
 - **Song "radio" from any row** — instant endless mix.
-- **Collaborative‑feel playlist sharing** via exported links/QR (local‑only, no backend needed).
-- **Chromecast‑style "now playing" screensaver / ambient mode** for a docked phone.
-- **Audio visualiser** in the player (fits the glassmorphic aesthetic).
+- **Collaborative‑feel playlist sharing** via exported links/QR (local‑only, no backend needed). — ✅ **done**, see §16.
+- **Chromecast‑style "now playing" screensaver / ambient mode** for a docked phone. — ✅ **done**, see §16.
+- **Audio visualiser** in the player (fits the glassmorphic aesthetic) — *built in Phase 5 and then removed; see the Phase 5 notes for why.*
 - **Widget‑style always‑on lyrics** on the lockscreen.
 - **The import mini‑game** (`ui/importer/DinoGame.kt`) is a lovely touch — surface it during long downloads too.
 
@@ -226,7 +226,7 @@ Legend — Impact: 🔥 high · ✨ medium · 💤 low  |  Effort: S (hours) · 
 | **2 — Daily‑driver** | Things users hit every day | Queue persistence, sleep timer, settings screen, sort/filter, search history, download resume | ✅ shipped |
 | **3 — Reach** | Meet users where they are | Android Auto (`MediaLibraryService`), widget, shortcuts, deep links, share | ✅ shipped |
 | **4 — Scale** | Robustness & breadth | Localisation extraction, tablet/landscape, offline caching, tests + migrations, R8 | ✅ shipped |
-| **5 — Delight** | Differentiate | Stats, equalizer, crossfade, themes/Material You, visualiser | |
+| **5 — Delight** | Differentiate | Stats, equalizer, crossfade, themes/Material You | ✅ shipped |
 
 ### Phase 2 — what landed
 
@@ -294,6 +294,116 @@ A new `:wear` Gradle module ships a watch app that remote‑controls the phone o
 | 33 unit tests, all green | LRC parsing, track‑metadata cleaning, stream‑cache TTL, Spotify playlist‑id extraction and `SongSort` ordering, under `app/src/test/` |
 
 **Still open in §4:** tablet/landscape `WindowSizeClass` layouts, a baseline profile, ktlint/detekt, and renaming the `com.example.*` application id (which must change in `:app` and `:wear` together). The R8 release build compiles but wants a device smoke‑test, since NewPipe and Rhino are reflection‑heavy.
+
+### Phase 5 — what landed
+
+| Item | Where |
+|---|---|
+| **Listening stats & year‑in‑review** | New append‑only `play_events` table (the old `play_history` is keyed by `songId` and trimmed to 20, so it can never hold play *counts*). `data/local/dao/StatsDao.kt` aggregates it; `ui/stats/StatsScreen.kt` renders range chips, metric cards, a daily activity chart, top artists, a 24‑hour listening clock and a ranked song list. Reached from the Library header |
+| Day/hour bucketing that respects the user's clock | `strftime('%Y-%m-%d', playedAt/1000, 'unixepoch', 'localtime')` — an 11 pm play lands on the right local day |
+| DB v5 → v6 migration, verified against real SQLite | `MIGRATION_5_6` in `di/DatabaseModule.kt` creates `play_events` and back‑fills it from `play_history`; `tools/migration_check_5_6.sql` replays it with 14 assertions |
+| **Equalizer + audio effects** | `playback/AudioEffectsManager.kt` owns `Equalizer`, `BassBoost`, `Virtualizer` and `LoudnessEnhancer` on the player's session. Every effect is constructed inside `runCatching` because OEM ROMs throw from these constructors; unsupported controls are hidden rather than shown broken. `ui/settings/EqualizerScreen.kt` exposes device presets, per‑band sliders (mB → dB), bass/virtualizer/loudness |
+| Third‑party EQ apps still work | `ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION` broadcasts, plus the session id is generated up front with `Util.generateAudioSessionIdV21` so the EQ exists before the first track loads |
+| **Crossfade + playback speed** | `playback/TrackFadeController.kt`. ExoPlayer has one output, so this is an honest fade‑out/fade‑in, not an overlap — documented in the class KDoc and in the setting's own subtitle. `fadeMs = 0` leaves the player untouched so native gapless still works |
+| Three writers on `player.volume` reconciled | The in‑app volume slider, `SleepTimerManager`'s fade and the track fader all move volume. The fader ignores the echo of its own write and treats anything else as a new *base*, applying its envelope multiplicatively — so a sleep‑timer fade and a track fade compose instead of fighting |
+| **Light theme + system following, AMOLED, Material You, accent picker** | `ui/theme/Palette.kt` defines `MusicSmPalette` (dark / AMOLED / light) published via `LocalMusicSmPalette`; `ui/theme/Color.kt` turns every existing token (`Coral`, `SurfaceLow`, `OnDark`, …) into a `@Composable @ReadOnlyComposable` accessor, so ~35 screens follow the theme without being rewritten. `MusicSMTheme` finally honours its parameters |
+| Default look is unchanged | `DarkPalette` holds the original Stitch values byte‑for‑byte, and `ThemeSettings` defaults to dark / no accent — a user who touches nothing sees exactly the old app. Asserted by `PaletteTest` |
+| Overlay tints that survive a light background | ~120 literal `Color.White` uses were classified rather than blind‑replaced: translucent fills became `OverlayTint` (white on dark, near‑black on light), content on coral became `OnAccent`, and content over *artwork* deliberately stayed literal white because a scrim always darkens it |
+| Accent sources are mutually exclusive | Material You, album‑art colouring and the manual picker all drive the accent, so `SettingsViewModel` turns the others off when one is chosen and the picker greys out when it isn't in charge |
+| Artwork theming without a recomposition storm | `ui/theme/AppThemeViewModel.kt` extracts the palette off‑composition and emits once per track, instead of animating a colour through the root composable |
+| **Themed (monochrome) app icon** | `drawable/ic_launcher_monochrome.xml` + `<monochrome>` in both `mipmap-anydpi-v26` icons. Every path is fully opaque — the system tints the layer, so a translucent path would read as a lighter patch, not a highlight |
+| 49 unit tests, all green | +9 `PaletteTest`, +6 `ListeningStatsTest` on top of the Phase 4 suite |
+
+**Not done in §5:** the **audio visualiser was built and then removed** — Android gates `android.media.audiofx.Visualizer` behind `RECORD_AUDIO` even for an app reading its own output, and enough devices hand back an all‑zero FFT (offloaded output, several Bluetooth routes, some OEM ROMs) that it wasn't worth a microphone permission prompt for a feature that silently degrades to a fake animation. The "colour from album art" option re‑tints the *accent* only — surfaces stay Stitch‑grey by design, so the app remains recognisable. A true overlapping crossfade would need a second `ExoPlayer` instance. None of this has been smoke‑tested on a physical device; verification so far is compile + unit tests + a SQLite migration replay.
+
+---
+
+## 16. Ambient mode & QR playlist sharing
+
+The last two §14 "delight" items, shipped together.
+
+### Ambient mode — `ui/player/AmbientScreen.kt`
+
+A Chromecast-style screensaver for a docked or idle phone. Reached from the Now Playing overflow menu (the top bar was already full at six icons, and `SongOptionsSheet` already had an `extraAction` slot).
+
+It is a **root-level overlay, not a nav destination** — the expanded player is itself drawn above the nav host, so a route would have rendered *behind* it.
+
+- `FLAG_KEEP_SCREEN_ON`, immersive system bars and `screenBrightness = 0.35f` are applied in one `DisposableEffect` and fully restored in `onDispose`, so none of it can leak into the rest of the app.
+- **Burn-in protection:** one 120-second phase drives three independent Lissajous orbits (backdrop, content, clock). The multipliers are whole numbers so the paths stay continuous where the animation restarts at 2π.
+- The clock re-syncs on the minute boundary rather than ticking per second, and honours the system 12/24-hour setting and locale.
+- Controls auto-hide after 5 s, return on tap; double-tap or back exits.
+
+### Playlist sharing — `domain/share/PlaylistShare.kt`, `ui/share/`
+
+**No backend, no account, no camera permission.** The entire track list is packed into the link itself.
+
+- **Payload `MSM1`:** name + one `id␟title␟artist␟duration` line per track → Deflate → Base64url. Chosen over JSON because a QR code tops out at ~2,950 bytes; 60 tracks encode to under 2,000 characters.
+- **Artwork URLs are omitted deliberately** — long, poorly compressible and fully reconstructible, since `Song.id` *is* the YouTube video id.
+- Sharing produces `musicsm://shared/playlist?d=…`, rendered as a QR plus "Send link" / "Copy link". Past QR capacity the code is dropped and only the link is offered — that is a normal outcome, not an error.
+- The app only ever *shows* codes. Scanning is the system camera's job, which opens the existing `musicsm` scheme filter — hence no `CAMERA` permission.
+- **Untrusted input is treated as such:** 1,000-track cap, 1 MiB inflate ceiling (zip-bomb guard), separator characters stripped on encode, and `decode()` returns null rather than throwing. The import screen previews the playlist and **writes nothing until the user taps "Add to library"**.
+- Covered by 8 unit tests in `PlaylistShareCodecTest`.
+
+Verification: `assembleDebug`, `assembleRelease` (R8 clean with zxing), 57 unit tests passing, lint unchanged at its 9 pre-existing errors. Still no physical-device smoke test.
+
+---
+
+## 17. Artist pages that actually show the artist
+
+**The bug:** an artist page showed karaoke covers, "best of" compilations and random tracks with the artist's name in the *title*, while missing most of the artist's real catalogue. The Albums section was permanently empty.
+
+**The cause:** `NewPipeMusicSource.artist(id)` was literally `searchSongs(id, limit = 20)` — a plain keyword search. YouTube matches a query against the **title** just as readily as the uploader, one page deep, and nothing ever populated `Artist.albums`.
+
+**The fix** — `data/source/youtube/ArtistMatching.kt`, a new pure-Kotlin matcher:
+
+| Decision | Why |
+|---|---|
+| Match on `uploaderName`, **never** the title | This is the whole bug. A channel name is a claim of authorship; a title is not |
+| Normalise before comparing | Strips channel noise (`- Topic`, `VEVO`, `- Official…`), folds accents via NFD + `\p{Mn}` removal, drops non-alphanumerics, lowercases. "Beyoncé - Topic" and "BeyonceVEVO" both reduce to `beyonce` |
+| Test the **whole** normalised name before splitting on separators | Keeps "Simon & Garfunkel" and "Earth, Wind & Fire" intact instead of shattering them into two artists on the `&` |
+| Split on `, ; · & / feat. ft. featuring with vs.` — but **never a bare `x`** | `x` is a collaboration separator *and* a letter inside names like "Lil Nas X" |
+| Whole-name equality, never substring | Otherwise "Drake" matches "Drake Bell" |
+| **Partition, don't drop** (`credited.ifEmpty { rest }`) | Some artists only ever appear under a label channel (HYBE for BTS). An empty page is worse than a slightly noisy one |
+| Dedupe on id *and* on normalised title | The same track is routinely uploaded as both "Artist" and "Artist - Topic" |
+
+Paging was added to `searchItems(…, pages)` — up to 4 pages / 80 results scanned, 50 songs kept — so the catalogue is deep enough to be useful. A failed continuation `break`s and keeps what it already had, rather than discarding the page. Albums now come from a real playlist search, and subscriber counts are formatted (`1.2M`).
+
+Covered by 14 unit tests in `ArtistMatchingTest`.
+
+---
+
+## 18. Jam — listen together on one Wi-Fi
+
+A Spotify-Jam-style shared session, built to the same constraints as everything else here: **no backend, no account, no login, no camera permission.**
+
+### Shape of it
+
+**Host-authoritative, host-only audio.** The host's Media3 timeline *is* the shared queue; guests are rich remote controls. One player means there is no clock to synchronise and no drift to correct — the hard half of "listen together" is designed out rather than solved badly.
+
+- **Transport:** a plain `ServerSocket(0)` on the host's Wi-Fi address, one line-delimited text message per exchange. The OS picks the port, so the port travels in the invite.
+- **Joining:** the host shows a QR encoding `musicsm://jam?…`. Guests scan it with the **system camera**, which opens the existing scheme filter — the same trick §16 uses, and the reason Jam needs no `CAMERA` permission. Share/copy-link fallbacks exist for cameras that won't offer a custom scheme.
+- **No new manifest permission at all.** `INTERNET` already covers sockets, and the host's address comes from enumerating `NetworkInterface`, which avoids the Wi-Fi APIs (and their location-permission strings) entirely.
+
+### Decisions worth keeping
+
+| Decision | Why |
+|---|---|
+| `positionMs` + `hostClockMs` are in `JamSnapshot` **from day one**, unread | Synced multi-device playback is the obvious sequel. Adding those fields later would be a breaking protocol change; carrying them now costs 20 bytes |
+| Snapshots are **absolute, never deltas** | A guest that misses a message is still correct after the next one. No replay, no sequence numbers, no resync path |
+| Per-guest `Channel(32, onBufferOverflow = DROP_OLDEST)` + `trySend` | Follows from the above: dropping a stale snapshot is *correct*, so one guest on a bad connection can never stall the host's UI thread |
+| Structural changes broadcast immediately; position rides a 3 s heartbeat | Naively mirroring player state would push ~20 messages/second to every guest |
+| Three nested separators (`\u001F` / `\u001E` / `\u001D`), all stripped on encode | One message per line means `readLine()` frames it for free, and a song titled `a\u001Fb` can't forge a field boundary |
+| `decode()` returns null instead of throwing; 512 KiB line cap, 1,000-track queue cap | Anything arriving over a socket is untrusted input |
+| 10-char token from an unambiguous alphabet (no `0/O/1/l`), via `SecureRandom` | Not real security — it stops a co-located user port-scanning in, and invalidates stale links once the host restarts |
+| Guest actions are re-routed in `PlayerViewModel`, not blocked in the UI | A guest tapping "add to queue", "play" or the transport controls anywhere in the app forwards to the host instead of starting a second, silent player. "Play next" degrades to a plain enqueue, and picking a track from an album contributes **only that track** — pushing 50 songs into someone else's Jam is rude |
+
+A loopback integration test drives a real `JamServer` and `JamClient` over actual sockets, and earned its place immediately: it caught `JamClient` reporting `connect_failed` for a refused join because `onDisconnected` fired twice, burying the real `bad_token` reason. Every exit path now flows through a single `finally`.
+
+Covered by 28 unit tests (`JamProtocolTest`, `JamInviteTest`, `JamLoopbackTest`).
+
+**Known limitation:** many public and corporate Wi-Fi networks enable **AP isolation**, which blocks client-to-client traffic and will stop a Jam from connecting with no way for the app to tell that apart from a wrong network. Phone hotspots and home Wi-Fi are fine.
+
+Verification: `assembleDebug`, `assembleRelease`, 99 unit tests passing, lint unchanged at its 9 pre-existing errors. Jam has been validated **in-process over loopback only** — it has never run on two physical devices.
 
 ---
 

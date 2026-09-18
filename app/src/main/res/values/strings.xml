@@ -246,4 +246,146 @@
     <string name="cd_play_pause">Play or pause</string>
     <string name="cd_next">Next track</string>
     <string name="cd_previous">Previous track</string>
+
+    <!-- Listening stats -->
+    <string name="stats_title">Listening stats</string>
+    <string name="stats_open">Your listening stats</string>
+    <string name="stats_open_subtitle">Top songs, artists and habits</string>
+    <string name="stats_range_4_weeks">4 weeks</string>
+    <string name="stats_range_6_months">6 months</string>
+    <string name="stats_range_this_year">This year</string>
+    <string name="stats_range_all_time">All time</string>
+    <string name="stats_empty_title">No listening history yet</string>
+    <string name="stats_empty_body">Play a few tracks and your top songs, artists and listening habits will show up here.</string>
+    <string name="stats_metric_minutes">Minutes</string>
+    <string name="stats_metric_plays">Plays</string>
+    <string name="stats_metric_songs">Songs</string>
+    <string name="stats_metric_artists">Artists</string>
+    <string name="stats_section_top_songs">Top songs</string>
+    <string name="stats_section_top_artists">Top artists</string>
+    <string name="stats_section_activity">Activity</string>
+    <string name="stats_section_clock">When you listen</string>
+    <string name="stats_since">Since %1$s</string>
+    <string name="stats_streak">%1$s listening streak</string>
+    <string name="stats_peak_hour">You listen most around %1$s</string>
+    <string name="stats_hours_minutes">%1$d h %2$d min</string>
+    <string name="stats_minutes_only">%1$d min</string>
+    <string name="stats_clear_title">Clear listening history</string>
+    <string name="stats_clear_subtitle">Deletes every play recorded for stats</string>
+    <string name="stats_clear_confirm_title">Clear listening history?</string>
+    <string name="stats_clear_confirm_body">All play counts, top songs and top artists will be reset. This cannot be undone.</string>
+    <plurals name="stats_play_count">
+        <item quantity="one">%d play</item>
+        <item quantity="other">%d plays</item>
+    </plurals>
+    <plurals name="stats_streak_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+
+    <!-- Equalizer and audio effects -->
+    <string name="equalizer_title">Equalizer</string>
+    <string name="equalizer_reset">Reset</string>
+    <string name="equalizer_enable_title">Audio effects</string>
+    <string name="equalizer_enable_subtitle">Apply the equalizer and effects below to playback</string>
+    <string name="equalizer_section_presets">Presets</string>
+    <string name="equalizer_section_bands">Bands</string>
+    <string name="equalizer_section_effects">Effects</string>
+    <string name="equalizer_section_system">System</string>
+    <string name="equalizer_preset_custom">Custom</string>
+    <string name="equalizer_bass_boost">Bass boost</string>
+    <string name="equalizer_virtualizer">Stereo width</string>
+    <string name="equalizer_loudness">Loudness</string>
+    <string name="equalizer_loudness_hint">Adds gain to quiet tracks so imported playlists don\'t jump in volume. High values can distort.</string>
+    <string name="equalizer_system_title">Open system equalizer</string>
+    <string name="equalizer_system_subtitle">Use the equalizer built into your device or headphones app</string>
+    <string name="equalizer_unavailable">This device doesn\'t expose an equalizer to apps. The system equalizer below may still work.</string>
+    <string name="settings_equalizer_title">Equalizer and effects</string>
+    <string name="settings_equalizer_subtitle">Bands, bass boost, stereo width, loudness</string>
+
+    <!-- Playback tuning -->
+    <string name="settings_section_audio">Audio</string>
+    <string name="settings_speed_title">Playback speed</string>
+    <string name="settings_speed_subtitle">%s\u00D7</string>
+    <string name="settings_crossfade_title">Crossfade</string>
+    <string name="settings_crossfade_off">Off \u2014 tracks follow each other gaplessly</string>
+    <string name="settings_crossfade_on">Fade out and in over %1$s seconds</string>
+
+    <!-- Appearance -->
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_amoled_title">AMOLED black</string>
+    <string name="settings_amoled_subtitle">Pure black backgrounds to save power on OLED screens</string>
+    <string name="settings_material_you_title">Material You</string>
+    <string name="settings_material_you_subtitle">Take the accent colour from your wallpaper</string>
+    <string name="settings_artwork_theme_title">Colour from album art</string>
+    <string name="settings_artwork_theme_subtitle">Re-tint the app to match the track that\'s playing</string>
+    <string name="settings_accent_title">Accent colour</string>
+    <string name="settings_accent_subtitle">Used for play buttons, progress and highlights</string>
+    <string name="settings_accent_locked">Turn off Material You and album-art colouring to pick your own</string>
+    <string name="settings_accent_default">Default accent</string>
+
+    <!-- Playlist sharing (QR / link) -->
+    <string name="share_playlist">Share playlist</string>
+    <string name="share_playlist_chooser">Share playlist via</string>
+    <string name="share_playlist_scan_hint">Scan with any camera to open this playlist in MusicSM. The whole track list is inside the code — no account or internet needed to read it.</string>
+    <string name="share_playlist_too_big">This playlist is too long to fit in a QR code. Send the link instead — it has no size limit.</string>
+    <string name="share_playlist_send_link">Send link</string>
+    <string name="share_playlist_copy_link">Copy link</string>
+    <string name="share_playlist_copied">Link copied</string>
+    <string name="share_playlist_message">%1$s — open in MusicSM:\n%2$s</string>
+    <plurals name="share_playlist_tracks">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+
+    <!-- Receiving a shared playlist -->
+    <string name="shared_playlist_header">Shared with you</string>
+    <string name="shared_playlist_add">Add to library</string>
+    <string name="shared_playlist_expired">This shared playlist is no longer available. Ask for the link again.</string>
+    <string name="shared_playlist_bad_link">That playlist link is damaged or incomplete.</string>
+
+    <!-- Ambient mode -->
+    <string name="ambient_mode">Ambient mode</string>
+    <string name="ambient_exit">Exit ambient mode</string>
+    <string name="ambient_nothing_playing">Nothing playing</string>
+
+    <!-- Jam: shared listening session over the local network -->
+    <string name="jam_title">Jam</string>
+    <string name="jam_open">Start a Jam</string>
+    <string name="jam_leave">Leave Jam</string>
+    <string name="jam_idle_title">Listen together</string>
+    <string name="jam_idle_subtitle">Start a Jam and everyone in the room can add songs and control playback. The music plays from this phone.</string>
+    <string name="jam_start">Start a Jam</string>
+    <string name="jam_join_hint">To join someone else\'s Jam, point your camera at their code. You need to be on the same Wi-Fi.</string>
+    <string name="jam_hosting_title">You\'re hosting</string>
+    <string name="jam_scan_hint">Anyone on this Wi-Fi can scan this with their camera to join. Music keeps playing from this phone.</string>
+    <string name="jam_share_link">Share</string>
+    <string name="jam_copy_link">Copy</string>
+    <string name="jam_link_copied">Jam link copied</string>
+    <string name="jam_share_message">Join my Jam \"%1$s\" on MusicSM — you\'ll need to be on the same Wi-Fi:\n%2$s</string>
+    <string name="jam_share_chooser">Invite to Jam via</string>
+    <string name="jam_guest_title">You\'re in a Jam</string>
+    <string name="jam_guest_subtitle">The music plays on the host\'s phone. Anything you change here happens there.</string>
+    <string name="jam_connecting">Joining \"%1$s\"…</string>
+    <string name="jam_queue_header">Shared queue</string>
+    <string name="jam_queue_empty_title">Nothing queued yet</string>
+    <string name="jam_queue_empty_subtitle">Add songs from anywhere in the app and they\'ll show up here for everyone.</string>
+    <string name="jam_remove_track">Remove from Jam queue</string>
+    <string name="jam_role_host">HOST</string>
+    <plurals name="jam_members">
+        <item quantity="one">%d person</item>
+        <item quantity="other">%d people</item>
+    </plurals>
+    <string name="jam_error_no_network">Connect to Wi-Fi to start a Jam. A mobile data connection can\'t host one.</string>
+    <string name="jam_error_port">Couldn\'t open a connection on this network. Try again.</string>
+    <string name="jam_error_bad_token">That Jam code is no longer valid. Ask the host for a fresh one.</string>
+    <string name="jam_error_version">The other phone is running a different version of MusicSM. Update both to jam together.</string>
+    <string name="jam_error_ended">The host ended the Jam.</string>
+    <string name="jam_error_host_gone">Lost the connection to the host. You may have left the Wi-Fi.</string>
+    <string name="jam_error_connect">Couldn\'t join that Jam. Check you\'re on the same Wi-Fi as the host.</string>
+    <string name="jam_try_again">Try again</string>
 </resources>
