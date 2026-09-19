@@ -429,6 +429,24 @@ Covered by 38 further tests, including `JamDiscoveryLoopbackTest`, which drives 
 
 **A race this work exposed:** `JamManager.join` launched its teardown on a separate coroutine and then installed the new client synchronously. The teardown could therefore land *after* the new connection, null it out and drop the UI back to idle mid-connect. Joining is now a single sequential coroutine. It had never been hit because the only way to join was a QR code that never worked.
 
+### 18b. Discovery is not guaranteed, so nothing may depend on it
+
+Nearby Jams and the join code both rest on the same assumption: that a UDP broadcast crosses the network. On the OnePlus Nord and Galaxy S23 it didn't — not on shared Wi-Fi, and not on a phone hotspot either, which rules out the usual explanation of AP client isolation. Broadcast delivery is decided by the Wi-Fi driver, the access point and, on recent Android versions, the platform's local-network restrictions; none of that is under the app's control, and a network that drops broadcasts makes a host permanently invisible no matter how many times it is probed.
+
+So the fix is not more discovery, it is **a path that never uses it**. A guest can now type the host's address, shown on the host's own screen:
+
+| Decision | Why |
+|---|---|
+| The **join code is the session token**, rather than a separate secret resolved into one | Previously the code was useless without discovery, because only a UDP reply carried the token. Collapsing the two means a guest who can read the host's screen already holds every credential needed, so a direct connection is possible with nothing but an address and a code. 31⁶ ≈ 10⁹ is ample for a LAN secret that also has to be read aloud |
+| The host binds a **known TCP port** (47655), falling back to an ephemeral one only if it is taken | A fixed port is what lets the address stand alone; the fallback keeps a clash from breaking hosting outright. The host panel shows `address:port` instead of a bare address whenever the fallback was used, so the displayed value is always sufficient |
+| The manual field appears **only after the automatic paths visibly fail** | It is an escape hatch, not a step. Showing it up front would make the common case look harder than it is |
+| Typed addresses accept `192.168.1.5`, `192.168.1.5:47655` and a pasted `http://…` form, but **reject hostnames** | A hostname would need a DNS lookup that local networks usually cannot answer, so accepting one would trade a clear inline error for a connection that hangs and then fails for no visible reason |
+| Token comparison is case-insensitive | The token is now something a human types |
+
+TCP to a known address survives the conditions that kill a broadcast, so this works wherever the two devices can reach each other at all — which, if they are on the same Wi-Fi, they can.
+
+**Diagnosing it from outside the app:** `jam-net-test.js` (kept with the session, not the repo) impersonates either half of the discovery protocol from a laptop — `--browse` to test whether a hosting phone answers, `--serve` to test whether a guest phone can find anything, `--sniff` to see whether probes arrive at all. Since both phones and the laptop speak the same wire format, this splits "the host isn't advertising" from "the guest isn't finding" from "the network is eating the packets", which is otherwise indistinguishable from inside the app.
+
 ---
 
 *Generated from a full audit of the v1.5.0 source tree. File references point at the code that would need to change.*

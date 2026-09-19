@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -106,7 +105,10 @@ class JamManager @Inject constructor(
             return false
         }
 
-        val token = newToken()
+        val joinCode = JamJoinCode.random()
+        // The code *is* the token. One secret instead of two means a guest who can see the host's
+        // screen has everything needed to connect directly, without discovery resolving anything.
+        val token = joinCode
         val hostMember = JamMember(id = HOST_MEMBER_ID, name = hostDisplayName, role = JamRole.HOST)
         members = listOf(hostMember)
 
@@ -134,7 +136,7 @@ class JamManager @Inject constructor(
         _state.value = JamState.Hosting(
             invite = JamInvite(address, jamServer.port, token, sessionName),
             members = members,
-            joinCode = JamJoinCode.random(),
+            joinCode = joinCode,
             discoverable = true,
         )
         startBeacon(hostDisplayName)
@@ -187,6 +189,26 @@ class JamManager @Inject constructor(
         val normalized = JamJoinCode.normalize(code) ?: return false
         val invite = JamDiscovery.resolve(normalized) ?: return false
         join(invite, displayName)
+        return true
+    }
+
+    /**
+     * Joins a host whose address was read off its screen and typed in by hand.
+     *
+     * This is the fallback for networks that never deliver the UDP broadcast discovery relies on —
+     * guest isolation, some hotspots, corporate Wi-Fi. TCP to a known address is far harder for a
+     * network to break than a broadcast, so this works in places where nothing is ever "found".
+     *
+     * @return false if the address or code is malformed, leaving [state] untouched. A well-formed
+     * address that nothing answers surfaces through [JamState.Failed] like any other bad connect.
+     */
+    fun joinByAddress(address: String, code: String, displayName: String): Boolean {
+        val normalized = JamJoinCode.normalize(code) ?: return false
+        val (host, port) = parseHostAddress(address, JamServer.PREFERRED_PORT) ?: return false
+        join(
+            invite = JamInvite(address = host, port = port, token = normalized, sessionName = ""),
+            displayName = displayName,
+        )
         return true
     }
 
@@ -313,19 +335,8 @@ class JamManager @Inject constructor(
         }
     }
 
-    private fun newToken(): String {
-        val random = SecureRandom()
-        return (1..TOKEN_LENGTH)
-            .map { TOKEN_ALPHABET[random.nextInt(TOKEN_ALPHABET.length)] }
-            .joinToString("")
-    }
-
     companion object {
         private const val HEARTBEAT_MS = 3_000L
-        private const val TOKEN_LENGTH = 10
-
-        // No look-alike characters: the token can end up being read aloud or typed in.
-        private const val TOKEN_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
 
         const val HOST_MEMBER_ID = "host"
         const val FAILED_NO_NETWORK = "no_network"

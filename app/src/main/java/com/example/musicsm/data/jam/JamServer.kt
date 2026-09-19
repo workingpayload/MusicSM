@@ -54,7 +54,7 @@ internal class JamServer(
     private val clients = LinkedHashMap<String, Client>()
     private val memberIds = AtomicInteger(0)
 
-    /** The port the OS handed us; valid only once [start] has returned true. */
+    /** The port actually bound; valid only once [start] has returned true. */
     var port: Int = 0
         private set
 
@@ -66,9 +66,10 @@ internal class JamServer(
      */
     suspend fun start(): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            // Port 0 asks the OS for any free port, which avoids clashing with anything else and
-            // means the port has to travel in the join link.
-            val socket = ServerSocket(0)
+            // A known port is tried first so that a guest whose network blocks UDP discovery can
+            // still get in knowing nothing but the host's address. Port 0 (any free port) is only
+            // a fallback for the rare case that something else already holds it.
+            val socket = runCatching { ServerSocket(PREFERRED_PORT) }.getOrElse { ServerSocket(0) }
             serverSocket = socket
             port = socket.localPort
             acceptJob = scope.launch(Dispatchers.IO) { acceptLoop(socket) }
@@ -173,7 +174,8 @@ internal class JamServer(
         val refusal = when {
             hello == null -> BYE_BAD_HANDSHAKE
             hello.version != JAM_PROTOCOL_VERSION -> BYE_VERSION_MISMATCH
-            hello.token != token -> BYE_BAD_TOKEN
+            // Case-insensitive: the token is the join code, and the code is typed by hand.
+            !hello.token.equals(token, ignoreCase = true) -> BYE_BAD_TOKEN
             else -> null
         }
         if (refusal != null) {
@@ -230,6 +232,9 @@ internal class JamServer(
         private const val OUTBOUND_BUFFER = 32
         private const val HANDSHAKE_TIMEOUT_MS = 5_000
         private const val DEFAULT_GUEST_NAME = "Guest"
+
+        /** Fixed so a guest can be given an address alone when discovery is unavailable. */
+        const val PREFERRED_PORT = 47_655
 
         const val BYE_SESSION_ENDED = "session_ended"
         const val BYE_BAD_HANDSHAKE = "bad_handshake"

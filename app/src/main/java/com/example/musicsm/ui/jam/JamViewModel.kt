@@ -40,6 +40,8 @@ data class JamNearbyState(
     val jams: List<DiscoveredJam> = emptyList(),
     val codeBusy: Boolean = false,
     val codeFailed: Boolean = false,
+    /** Set when a hand-typed host address could not be understood. */
+    val addressFailed: Boolean = false,
 )
 
 @HiltViewModel
@@ -120,6 +122,17 @@ class JamViewModel @Inject constructor(
     }
 
     fun setDiscoverable(discoverable: Boolean) = jamManager.setDiscoverable(discoverable)
+
+    /**
+     * Joins a host by an address the user read off its screen, skipping discovery entirely.
+     *
+     * Unlike [joinByCode] this cannot report "not found" inline, because a direct connection
+     * either succeeds or fails asynchronously; only a malformed address is caught here.
+     */
+    fun joinByAddress(address: String, code: String) {
+        val accepted = jamManager.joinByAddress(address, code, displayName = defaultSessionName())
+        _nearby.value = _nearby.value.copy(addressFailed = !accepted)
+    }
 
     fun startHosting(sessionName: String) {
         viewModelScope.launch {

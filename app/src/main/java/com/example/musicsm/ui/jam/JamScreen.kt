@@ -168,6 +168,7 @@ fun JamScreen(
                         onRefresh = viewModel::refreshNearby,
                         onJoin = viewModel::joinDiscovered,
                         onJoinByCode = viewModel::joinByCode,
+                        onJoinByAddress = viewModel::joinByAddress,
                         isCodeComplete = viewModel::isCodeComplete,
                     )
 
@@ -251,6 +252,7 @@ private fun JamIdlePanel(
     onRefresh: () -> Unit,
     onJoin: (DiscoveredJam) -> Unit,
     onJoinByCode: (String) -> Unit,
+    onJoinByAddress: (String, String) -> Unit,
     isCodeComplete: (String) -> Boolean,
 ) {
     Column(
@@ -295,6 +297,7 @@ private fun JamIdlePanel(
         JamCodeEntry(
             nearby = nearby,
             onJoinByCode = onJoinByCode,
+            onJoinByAddress = onJoinByAddress,
             isCodeComplete = isCodeComplete,
         )
     }
@@ -418,6 +421,7 @@ private fun JamNearbyRow(jam: DiscoveredJam, onClick: () -> Unit) {
 private fun JamCodeEntry(
     nearby: JamNearbyState,
     onJoinByCode: (String) -> Unit,
+    onJoinByAddress: (String, String) -> Unit,
     isCodeComplete: (String) -> Boolean,
 ) {
     var code by rememberSaveable { mutableStateOf("") }
@@ -483,6 +487,83 @@ private fun JamCodeEntry(
             color = MaterialTheme.colorScheme.error,
         )
     }
+
+    // Shown only once the automatic paths have visibly failed, so the common case stays simple.
+    if (nearby.codeFailed || (nearby.scanned && nearby.jams.isEmpty())) {
+        Spacer(Modifier.height(20.dp))
+        JamManualAddressEntry(
+            code = code,
+            addressFailed = nearby.addressFailed,
+            onConnect = { address -> keyboard?.hide(); onJoinByAddress(address, code) },
+        )
+    }
+}
+
+/**
+ * The last-resort way in: type the host's address directly.
+ *
+ * Discovery needs a UDP broadcast to survive the network, and plenty of them don't deliver one —
+ * guest isolation, some phone hotspots, most corporate Wi-Fi. A TCP connection to an address the
+ * user can read off the host's screen has none of that fragility, so this always works wherever
+ * the two devices can reach each other at all.
+ */
+@Composable
+private fun JamManualAddressEntry(
+    code: String,
+    addressFailed: Boolean,
+    onConnect: (String) -> Unit,
+) {
+    var address by rememberSaveable { mutableStateOf("") }
+
+    Text(
+        stringResource(R.string.jam_manual_header),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = OnDark,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        stringResource(R.string.jam_manual_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = OnDarkVariant,
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        OutlinedTextField(
+            value = address,
+            onValueChange = { typed -> address = typed.take(ADDRESS_INPUT_LIMIT) },
+            singleLine = true,
+            isError = addressFailed,
+            placeholder = {
+                Text(stringResource(R.string.jam_manual_placeholder), color = OnDarkVariant)
+            },
+            keyboardOptions = KeyboardOptions(
+                autoCorrectEnabled = false,
+                imeAction = ImeAction.Go,
+            ),
+            keyboardActions = KeyboardActions(onGo = { onConnect(address) }),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = { onConnect(address) },
+            enabled = address.isNotBlank() && code.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = Coral, contentColor = OnAccent),
+            shape = RoundedCornerShape(50),
+        ) { Text(stringResource(R.string.jam_manual_join)) }
+    }
+    if (addressFailed) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.jam_manual_bad_address),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
 }
 
 @Composable
@@ -529,6 +610,33 @@ private fun JamHostPanel(state: JamState.Hosting, onDiscoverableChange: (Boolean
         Spacer(Modifier.height(6.dp))
         Text(
             stringResource(R.string.jam_code_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+            textAlign = TextAlign.Center,
+        )
+
+        // The address is shown too, because discovery is the part most likely to be blocked by a
+        // network and this is what a stuck guest needs in order to connect anyway.
+        Spacer(Modifier.height(16.dp))
+        Text(
+            stringResource(R.string.jam_host_address_label),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            if (state.invite.port == JamServer.PREFERRED_PORT) {
+                state.invite.address
+            } else {
+                "${state.invite.address}:${state.invite.port}"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = OnDark,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            stringResource(R.string.jam_host_address_hint),
             style = MaterialTheme.typography.bodySmall,
             color = OnDarkVariant,
             textAlign = TextAlign.Center,
@@ -797,3 +905,6 @@ private fun copyJamLink(context: Context, label: String, link: String) {
 
 /** Generous enough for hyphens and spaces, tight enough to stop a paste filling the field. */
 private const val CODE_INPUT_LIMIT = 12
+
+/** Room for a dotted quad and an optional `:port`, and nothing more. */
+private const val ADDRESS_INPUT_LIMIT = 21

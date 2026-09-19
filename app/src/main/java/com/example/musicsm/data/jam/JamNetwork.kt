@@ -27,3 +27,33 @@ internal fun localAddressOrNull(): String? = runCatching {
         .firstOrNull { it.isSiteLocalAddress }
         ?.hostAddress
 }.getOrNull()
+
+/**
+ * Parses an address a user typed on the join screen, such as `192.168.43.1` or `192.168.1.5:47655`.
+ *
+ * This is the escape hatch for networks that drop the UDP broadcast discovery depends on: a guest
+ * who can read the host's address off its screen needs nothing else, because the host prefers a
+ * known port and the join code doubles as the token.
+ *
+ * Returns null if [input] could not be an address, so the caller can show an inline error instead
+ * of attempting a doomed connection.
+ */
+internal fun parseHostAddress(input: String, defaultPort: Int): Pair<String, Int>? {
+    val trimmed = input.trim().removePrefix("http://").removePrefix("https://").trimEnd('/')
+    if (trimmed.isEmpty()) return null
+
+    val host = trimmed.substringBefore(':')
+    val portPart = trimmed.substringAfter(':', "")
+    val port = when {
+        portPart.isEmpty() -> defaultPort
+        else -> portPart.toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
+    }
+
+    // Only dotted-quad IPv4 is accepted: a hostname would need a DNS lookup that local networks
+    // usually cannot answer, and letting one through would just stall the connection attempt.
+    val octets = host.split('.')
+    if (octets.size != 4) return null
+    if (octets.any { part -> part.toIntOrNull()?.takeIf { it in 0..255 } == null }) return null
+
+    return host to port
+}
