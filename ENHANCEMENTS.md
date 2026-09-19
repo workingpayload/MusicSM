@@ -433,4 +433,26 @@ Verification: `assembleDebug`, `assembleRelease`, 91 unit tests passing, lint un
 
 ---
 
+## 18b. A premium ambient mode
+
+Ambient mode worked, but it looked like a big player with the lights turned down: a flat blurred wash, a black drop shadow behind the sleeve, body-sized text and a bare row of icons. It is the screen that stays up for hours on a dock, so it deserved to be the best-looking thing in the app.
+
+**The backdrop is now an aurora.** Three soft colour blobs drift behind everything, lit from the artwork's dominant colour — one in that colour, one blended toward a cool pole, one toward a warm one. They are radial gradients rather than blurred shapes, so the softness comes free from the shader with no render-effect pass, which matters for something animating all night on a charging phone. The poles are **fixed constants, not theme tokens**: ambient mode is always a night surface and must not turn pale under the light theme. Blending *from* the artwork colour keeps it tied to what is playing rather than looking like stock wallpaper. Above it sits the blurred artwork wash (now slowly zooming as well as panning) and a three-stop scrim plus a radial vignette, so text stays readable over any sleeve however bright.
+
+**The sleeve is lit, not shadowed.** A black drop shadow on a dark backdrop reads as a smudge; it was replaced with a bloom in the artwork's own colour that bleeds past the edges, so the sleeve looks lit from behind. A hairline white border keeps it from dissolving into the glow, and the whole thing breathes on a long 11-second ease.
+
+**Track changes dissolve.** Artwork, title and artist all crossfade. This is the single biggest difference between feeling like a screensaver and feeling like a slideshow.
+
+**Typography got the editorial treatment** — display-sized title with tightened tracking, an uppercase wide-tracked artist credit, and a 76sp extra-light clock with negative tracking above a new uppercase date line. Both clock formats follow the system 12/24-hour setting and locale.
+
+**New:** a hairline progress line with elapsed and total times. Deliberately **not** draggable — a screensaver should not invite touching the screen it is asking you to leave alone. **Controls** now float in a frosted pill matching the app's glass language instead of sitting bare on the backdrop.
+
+**Burn-in protection is preserved and extended.** The backdrop blobs, the content layer and the clock each drift on their own orbit at mismatched periods (120s / 97s / 61s), so the layers never line back up and no pixel stays lit. `FLAG_KEEP_SCREEN_ON` and the dimmed `AMBIENT_BRIGHTNESS` remain strictly scoped to this screen and are restored on exit.
+
+**The performance rule this screen lives by:** every animated value is kept as a `State` and read **only inside `graphicsLayer`/draw lambdas**, never in composition. A top-level read of an infinite animation re-runs the whole tree every frame — here, all night. Any future edit that adds one will silently wreck battery life without looking wrong.
+
+Verification: `assembleDebug`, 91 unit tests passing, lint unchanged at its 10 pre-existing errors. Ambient mode is pure UI and has no unit tests; **the visual result has not been checked on a physical device.**
+
+---
+
 *Generated from a full audit of the v1.5.0 source tree. File references point at the code that would need to change.*
