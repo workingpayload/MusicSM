@@ -9,6 +9,7 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+/brag-output
 /captures
 .externalNativeBuild
 .cxx
