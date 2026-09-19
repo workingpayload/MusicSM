@@ -113,6 +113,7 @@ dependencies {
 
     // QR codes for playlist sharing
     implementation(libs.zxing.core)
+    implementation(libs.play.services.code.scanner)
 
     // Wear OS companion (Data Layer)
     implementation(libs.play.services.wearable)

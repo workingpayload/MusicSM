@@ -22,9 +22,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
@@ -59,6 +61,8 @@ import com.example.musicsm.ui.components.SectionHeader
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.Lavender
+import com.example.musicsm.ui.theme.OnAccent
 import com.example.musicsm.ui.theme.StitchBackground
 import com.example.musicsm.ui.theme.SurfaceLow
 
@@ -68,8 +72,10 @@ fun LibraryScreen(
     onOpenLiked: () -> Unit,
     onOpenPlaylist: (Long) -> Unit,
     onImportPlaylist: () -> Unit,
+    onScanCode: () -> Unit,
     onOpenArtist: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -102,6 +108,14 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
                 )
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onScanCode)
+                        .padding(8.dp),
+                ) {
+                    Icon(Icons.Filled.QrCodeScanner, contentDescription = stringResource(R.string.library_scan_code), tint = MaterialTheme.colorScheme.onBackground)
+                }
                 Box(
                     modifier = Modifier
                         .clip(CircleShape)
@@ -139,6 +153,7 @@ fun LibraryScreen(
                     .padding(vertical = 6.dp),
             ) {
                 CategoryRow(Icons.Filled.Favorite, Coral, stringResource(R.string.library_liked_songs), "${liked.size}", onOpenLiked)
+                CategoryRow(Icons.Filled.BarChart, Lavender, stringResource(R.string.stats_open), "", onOpenStats)
             }
         }
 
@@ -309,8 +324,8 @@ private fun FilledChip(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = if (filled) Color.White else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, color = if (filled) Color.White else MaterialTheme.colorScheme.onSurface)
+        Icon(icon, contentDescription = null, tint = if (filled) OnAccent else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (filled) OnAccent else MaterialTheme.colorScheme.onSurface)
     }
 }
 

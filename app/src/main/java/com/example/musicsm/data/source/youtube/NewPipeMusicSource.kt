@@ -1,5 +1,6 @@
 package com.example.musicsm.data.source.youtube
 
+import com.example.musicsm.domain.match.ArtistMatching
 import com.example.musicsm.domain.model.Album
 import com.example.musicsm.domain.model.Artist
 import com.example.musicsm.domain.model.HomeFeed

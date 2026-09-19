@@ -69,6 +69,17 @@ fun Intent?.toAppIntent(): AppIntent? {
     }
 }
 
+/**
+ * Parse a link that reached the app outside an [Intent] — currently a scanned QR code.
+ *
+ * Accepts a bare link or a link embedded in surrounding text, matching what [toAppIntent] does for
+ * shared text, so a code carrying "Listen to X: musicsm://…" still works.
+ */
+fun appIntentFromLink(raw: String): AppIntent? {
+    val url = FIRST_URL.find(raw.trim())?.value?.trimEnd('.', ',', ')') ?: return null
+    return appIntentFromUri(url.toUri())
+}
+
 private fun appIntentFromUri(uri: Uri): AppIntent? = when (uri.scheme?.lowercase()) {
     APP_SCHEME -> fromAppUri(uri)
     "http", "https" -> fromYouTubeUri(uri)

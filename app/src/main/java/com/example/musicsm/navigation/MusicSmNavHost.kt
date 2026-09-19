@@ -28,6 +28,7 @@ fun MusicSmNavHost(
     navController: NavHostController,
     playerViewModel: PlayerViewModel,
     onExpandPlayer: () -> Unit,
+    onScanCode: () -> Unit,
     modifier: Modifier = Modifier,
     startDestination: String = Routes.HOME,
 ) {
@@ -66,6 +67,7 @@ fun MusicSmNavHost(
                 onOpenLiked = { navController.navigate(Routes.liked()) },
                 onOpenPlaylist = { navController.navigate(Routes.localPlaylist(it)) },
                 onImportPlaylist = { navController.navigate(Routes.IMPORT) },
+                onScanCode = onScanCode,
                 onOpenArtist = { navController.navigate(Routes.artist(it)) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenStats = { navController.navigate(Routes.STATS) },

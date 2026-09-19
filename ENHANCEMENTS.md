@@ -372,4 +372,65 @@ Covered by 14 unit tests in `ArtistMatchingTest`.
 
 ---
 
+## 18. Recommendations driven by listening history
+
+**The complaint:** the Home feed felt random, and changed every time it was pulled to refresh.
+
+It genuinely was. `HomeViewModel.buildOnlineSections()` had randomness baked into three places, and used the wrong signal entirely:
+
+| Old behaviour | Why it felt arbitrary |
+|---|---|
+| `liked.shuffled().take(4)` as recommendation seeds | A different random sample on **every refresh**, so the shelf never settled |
+| `"Because you liked <X>"` used `liked.first()` | Whichever song happened to be stored first, not a favourite |
+| Followed-artist shelf ended in `.shuffled()` | Discarded the provider's own relevance ordering for no gain |
+| **Listening history was never consulted** | Only *likes* counted — a rare, deliberate act most users perform a handful of times. `StatsRepository` already tracked play counts per song and per artist, and Home ignored all of it |
+| The provider's generic feed was appended raw | Identical for every user, and often the bulk of the page |
+
+**The fix** — two new pure-Kotlin pieces in `domain/recommend/`:
+
+`TasteProfile` / `TasteProfiles.build(…)` folds history, likes and follows into one ranking:
+
+| Signal | Weight | Rationale |
+|---|---|---|
+| A play in the last 4 weeks | ×2.0 | What someone has on repeat *now* predicts the next track best |
+| A play at any time (all-time) | ×1.0 | Long-term taste, so a new obsession can't erase everything |
+| A liked song | 3.0 | Deliberate, so worth a few plays — but it is no longer the only input |
+| A followed artist | 8.0 | The strongest explicit statement available |
+
+- **Deterministic.** Same history ⇒ same feed. It now changes only when listening changes, which is the whole point.
+- **Seeds are capped at one per artist**, so a single act can't swallow the recommendations.
+- Collaborations credit **every** act on the line, reusing the §17 matcher.
+- "Listen again" is restricted to songs actually *played* — never an untouched like.
+
+`ShelfRanker` assembles each shelf: drops malformed entries and duplicates, skips anything already shown on another shelf, and sorts by artist affinity. The sort is **stable**, so equally-relevant tracks keep the provider's own ordering rather than being scrambled. Discovery shelves additionally exclude everything already heard. Charts use `dedupe()` instead of `rank()` — reordering "Trending now" by personal taste would misreport what is actually popular.
+
+Home now reads: **Listen again → Recommended for you → More like \<most-played track\> → From artists you follow → Trending now → generic feed** (trimmed to 4 sections once there is real history to personalize from).
+
+`ArtistMatching` moved from `data/source/youtube/` to `domain/match/` so the recommender can share it instead of duplicating the name-folding rules.
+
+Covered by 20 unit tests in `TasteProfileTest` and `ShelfRankerTest`.
+
+---
+
+## 18a. Playlist QR codes that can actually be scanned
+
+**The bug:** scanning a shared-playlist QR with a phone camera did nothing at all.
+
+**The cause:** the code carries `musicsm://shared/playlist?d=…`. **OEM camera apps only offer to open `http(s)` codes and silently ignore custom schemes** — there is no prompt and no error, so it looks like the code is broken. The app's deep-link handling was never at fault: the same link works when *tapped* in a message. `PlaylistShareSheet`'s own KDoc asserted that "any ordinary camera app" would open it, which was simply wrong, and that false claim was used to justify never shipping a scanner.
+
+Fixing it properly needs either a real domain (App Links — none available) or scanning inside the app. The app has deliberately never requested `CAMERA`.
+
+**The fix:** Google Play services' code scanner (`play-services-code-scanner`). It renders its **own** scanning UI in a separate process and returns only the decoded string, so MusicSM reads QR codes **without declaring the `CAMERA` permission** — verified absent from the merged manifest.
+
+- `ui/share/QrScanner.kt` exposes `rememberQrScanner(onScanned, onUnavailable)`. Cancelling is silent; only genuine failures surface a message.
+- `appIntentFromLink()` parses the scanned text, and `MusicSmRoot` routes it through the **same** handler as a tapped link — a scanned playlist and a tapped one cannot diverge.
+- Entry point: **Library → Scan playlist code**.
+- `com.google.mlkit.vision.DEPENDENCIES=barcode_ui` in the manifest prefetches the scanner module at install time, so the first scan doesn't stall on a download.
+- Play services is a hard requirement, so `onUnavailable` tells the user to ask for the link instead — which still works everywhere.
+- The misleading KDoc and the "Scan with any camera" caption were both corrected.
+
+Verification: `assembleDebug`, `assembleRelease`, 91 unit tests passing, lint unchanged at its 10 pre-existing errors. Still no physical-device smoke test.
+
+---
+
 *Generated from a full audit of the v1.5.0 source tree. File references point at the code that would need to change.*

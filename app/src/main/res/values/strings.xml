@@ -33,8 +33,10 @@
     <string name="home_error">Couldn\'t load home</string>
     <string name="home_offline_banner">You\'re offline — showing your downloads and library.</string>
     <string name="home_because_you_liked">Because you liked %1$s</string>
+    <string name="home_more_like">More like %1$s</string>
     <string name="shelf_downloaded">Downloaded</string>
     <string name="shelf_recently_played">Recently played</string>
+    <string name="shelf_listen_again">Listen again</string>
     <string name="shelf_liked_songs">Liked songs</string>
     <string name="shelf_recommended">Recommended for you</string>
     <string name="shelf_from_followed_artists">From artists you follow</string>
@@ -55,6 +57,9 @@
     <!-- Library -->
     <string name="library_title">Library</string>
     <string name="library_import_playlist">Import playlist</string>
+    <string name="library_scan_code">Scan playlist code</string>
+    <string name="scan_unknown_code">That\'s not a MusicSM playlist code.</string>
+    <string name="scan_unavailable">Scanning needs Google Play services. Ask for the link instead.</string>
     <string name="library_new_playlist">New playlist</string>
     <string name="library_liked_songs">Liked Songs</string>
     <string name="library_shuffle_all">Shuffle All</string>
@@ -331,7 +336,7 @@
     <!-- Playlist sharing (QR / link) -->
     <string name="share_playlist">Share playlist</string>
     <string name="share_playlist_chooser">Share playlist via</string>
-    <string name="share_playlist_scan_hint">Scan with any camera to open this playlist in MusicSM. The whole track list is inside the code — no account or internet needed to read it.</string>
+    <string name="share_playlist_scan_hint">Scan this from Library → Scan playlist code in MusicSM. The whole track list is inside the code — no account or internet needed to read it.</string>
     <string name="share_playlist_too_big">This playlist is too long to fit in a QR code. Send the link instead — it has no size limit.</string>
     <string name="share_playlist_send_link">Send link</string>
     <string name="share_playlist_copy_link">Copy link</string>

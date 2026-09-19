@@ -28,6 +28,15 @@
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
+
+        <!--
+            Pull the Play services QR-scanning module down at install time. Without this it is
+            fetched on the very first scan, so a user with a poor connection taps "Scan" and
+            nothing appears to happen — the exact failure this feature exists to fix.
+        -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode_ui" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

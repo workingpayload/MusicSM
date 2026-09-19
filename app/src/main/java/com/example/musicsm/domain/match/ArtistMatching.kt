@@ -1,20 +1,24 @@
-package com.example.musicsm.data.source.youtube
+package com.example.musicsm.domain.match
 
 import java.text.Normalizer
 
 /**
- * Decides whether a YouTube upload actually *belongs* to an artist.
+ * Decides whether a credit line actually *belongs* to an artist.
  *
- * The artist page is built from a music search for the artist's name, and a plain keyword search
- * happily returns anything with that name in the **title** — covers, reaction videos, "best of"
- * compilations, and unrelated tracks that merely namecheck them. The fix is to ignore the title
- * entirely and match on the uploader instead.
+ * This started life as a fix for the artist page, which is built from a music search for the
+ * artist's name: a plain keyword search happily returns anything with that name in the **title** —
+ * covers, reaction videos, "best of" compilations, and unrelated tracks that merely namecheck
+ * them. The fix is to ignore the title entirely and match on the uploader instead.
  *
  * That is harder than string equality because YouTube credits the same artist in several shapes:
  * auto-generated `"Artist - Topic"` channels, legacy `"ArtistVEVO"` channels, and multi-artist
  * credits like `"Ed Sheeran, Justin Bieber"`.
+ *
+ * It lives in `domain` rather than next to the YouTube source because the recommendation engine
+ * needs the same name-folding to tell whether a candidate track is by an artist the listener
+ * already loves. Duplicating these rules would let the two copies drift apart.
  */
-internal object ArtistMatching {
+object ArtistMatching {
 
     /** Collaboration separators. Deliberately excludes a bare "x" — it appears inside names. */
     private val CREDIT_SEPARATORS = Regex(
@@ -36,17 +40,46 @@ internal object ArtistMatching {
      * that isn't a letter or digit, so "Beyoncé", "BEYONCE" and "Beyoncé - Topic" all agree.
      */
     fun normalize(raw: String): String {
-        val withoutNoise = CHANNEL_NOISE.replace(raw.trim(), "")
-        val folded = Normalizer.normalize(withoutNoise, Normalizer.Form.NFD)
+        val folded = Normalizer.normalize(displayName(raw), Normalizer.Form.NFD)
             .replace(COMBINING_MARKS, "")
         return NON_ALPHANUMERIC.replace(folded, "").lowercase()
     }
+
+    /**
+     * The name with channel packaging removed but its original spelling intact, for showing to
+     * people: "Arijit Singh - Topic" becomes "Arijit Singh".
+     */
+    fun displayName(raw: String): String = CHANNEL_NOISE.replace(raw.trim(), "").trim()
 
     /** Split a credit line such as "Ed Sheeran, Justin Bieber" into its individual artists. */
     fun creditedNames(uploader: String): List<String> =
         uploader.split(CREDIT_SEPARATORS)
             .map(::normalize)
             .filter { it.isNotEmpty() }
+
+    /**
+     * Like [creditedNames] but keeping each act's original spelling, so a shelf can be titled
+     * "More like Justin Bieber" rather than "More like justinbieber".
+     */
+    fun creditLabels(uploader: String?): List<String> =
+        uploader.orEmpty()
+            .split(CREDIT_SEPARATORS)
+            .map(::displayName)
+            .filter { normalize(it).isNotEmpty() }
+
+    /**
+     * Every comparison key [uploader] could reasonably be filed under: the whole credit line plus
+     * each individual act within it. Lets the recommender score a track against a listener's
+     * favourite artists with one set lookup instead of a [matches] pass per artist.
+     */
+    fun creditKeys(uploader: String?): Set<String> {
+        val credit = uploader.orEmpty()
+        if (credit.isBlank()) return emptySet()
+        return buildSet {
+            normalize(credit).takeIf { it.isNotEmpty() }?.let(::add)
+            addAll(creditedNames(credit))
+        }
+    }
 
     /**
      * True when [uploader] is credited to [artist].

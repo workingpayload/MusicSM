@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,7 @@ import com.example.musicsm.ui.player.DownloadStatusBar
 import com.example.musicsm.ui.player.AmbientScreen
 import com.example.musicsm.ui.player.ExpandedPlayer
 import com.example.musicsm.ui.player.PlayerViewModel
+import com.example.musicsm.ui.share.rememberQrScanner
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.GlassFillStrong
 import kotlinx.coroutines.flow.StateFlow
@@ -86,6 +88,8 @@ fun MusicSmRoot(
     // Hoisted out of the intent handler below: resolving a string from a raw Context inside a
     // composable bypasses Compose's configuration tracking.
     val badLinkMessage = stringResource(R.string.shared_playlist_bad_link)
+    val unknownCodeMessage = stringResource(R.string.scan_unknown_code)
+    val scannerUnavailableMessage = stringResource(R.string.scan_unavailable)
 
     // Nothing to screensaver once playback is gone.
     LaunchedEffect(playerState.currentSong == null) {
@@ -146,47 +150,68 @@ fun MusicSmRoot(
             }
         }
 
-        // Launcher shortcuts, deep links, shared YouTube links, widget/tile taps, voice search.
+        // Launcher shortcuts, deep links, shared YouTube links, widget/tile taps, voice search —
+        // and QR codes scanned in-app, which deliberately run through this same handler so a
+        // scanned playlist behaves exactly like a tapped link.
+        val handleAppIntent: suspend (AppIntent) -> Unit = { appIntent ->
+            when (appIntent) {
+                AppIntent.Resume -> {
+                    if (playerViewModel.resumePlayback()) expandNow()
+                }
+                is AppIntent.OpenTab -> navigateToTab(appIntent.route)
+                is AppIntent.Search -> {
+                    intentViewModel.prefillSearch(appIntent.query)
+                    navigateToTab(Routes.SEARCH)
+                    if (appIntent.playFirst && appIntent.query.isNotBlank()) {
+                        if (playerViewModel.searchAndPlay(appIntent.query)) expandNow()
+                    }
+                }
+                is AppIntent.PlaySong -> {
+                    if (playerViewModel.playSongId(appIntent.songId)) {
+                        expandNow()
+                    } else {
+                        toast(context, context.getString(R.string.error_open_track))
+                    }
+                }
+                is AppIntent.OpenAlbum -> navController.navigate(Routes.album(appIntent.albumId))
+                is AppIntent.OpenArtist -> navController.navigate(Routes.artist(appIntent.artistId))
+                is AppIntent.OpenPlaylist ->
+                    navController.navigate(Routes.localPlaylist(appIntent.playlistId))
+                AppIntent.OpenLiked -> navController.navigate(Routes.liked())
+                AppIntent.OpenDownloads -> navController.navigate(Routes.DOWNLOADS)
+                is AppIntent.ImportSharedPlaylist -> {
+                    if (intentViewModel.offerSharedPlaylist(appIntent.payload)) {
+                        collapse()
+                        navController.navigate(Routes.SHARED_PLAYLIST)
+                    } else {
+                        toast(context, badLinkMessage)
+                    }
+                }
+                is AppIntent.Unsupported -> toast(context, context.getString(appIntent.messageRes))
+            }
+        }
+        val currentIntentHandler by rememberUpdatedState(handleAppIntent)
+
         LaunchedEffect(appIntents) {
             appIntents?.filterNotNull()?.collect { appIntent ->
                 onIntentHandled()
-                when (appIntent) {
-                    AppIntent.Resume -> {
-                        if (playerViewModel.resumePlayback()) expandNow()
-                    }
-                    is AppIntent.OpenTab -> navigateToTab(appIntent.route)
-                    is AppIntent.Search -> {
-                        intentViewModel.prefillSearch(appIntent.query)
-                        navigateToTab(Routes.SEARCH)
-                        if (appIntent.playFirst && appIntent.query.isNotBlank()) {
-                            if (playerViewModel.searchAndPlay(appIntent.query)) expandNow()
-                        }
-                    }
-                    is AppIntent.PlaySong -> {
-                        if (playerViewModel.playSongId(appIntent.songId)) {
-                            expandNow()
-                        } else {
-                            toast(context, context.getString(R.string.error_open_track))
-                        }
-                    }
-                    is AppIntent.OpenAlbum -> navController.navigate(Routes.album(appIntent.albumId))
-                    is AppIntent.OpenArtist -> navController.navigate(Routes.artist(appIntent.artistId))
-                    is AppIntent.OpenPlaylist ->
-                        navController.navigate(Routes.localPlaylist(appIntent.playlistId))
-                    AppIntent.OpenLiked -> navController.navigate(Routes.liked())
-                    AppIntent.OpenDownloads -> navController.navigate(Routes.DOWNLOADS)
-                    is AppIntent.ImportSharedPlaylist -> {
-                        if (intentViewModel.offerSharedPlaylist(appIntent.payload)) {
-                            collapse()
-                            navController.navigate(Routes.SHARED_PLAYLIST)
-                        } else {
-                            toast(context, badLinkMessage)
-                        }
-                    }
-                    is AppIntent.Unsupported -> toast(context, context.getString(appIntent.messageRes))
-                }
+                currentIntentHandler(appIntent)
             }
         }
+
+        // Reading a playlist QR. Phone cameras ignore `musicsm://` codes, so this is the only way
+        // a scanned playlist can actually open.
+        val startScan = rememberQrScanner(
+            onScanned = { raw ->
+                val scanned = appIntentFromLink(raw)
+                if (scanned == null) {
+                    toast(context, unknownCodeMessage)
+                } else {
+                    scope.launch { currentIntentHandler(scanned) }
+                }
+            },
+            onUnavailable = { toast(context, scannerUnavailableMessage) },
+        )
 
         CompositionLocalProvider(
             LocalHazeState provides hazeState,
@@ -199,6 +224,7 @@ fun MusicSmRoot(
                     navController = navController,
                     playerViewModel = playerViewModel,
                     onExpandPlayer = { expandNow() },
+                    onScanCode = startScan,
                     startDestination = startDestination,
                     modifier = Modifier
                         .fillMaxSize()
