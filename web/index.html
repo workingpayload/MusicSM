@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MusicSM — Your music. Beautifully offline.</title>
+    <meta
+      name="description"
+      content="MusicSM is a glassmorphic Android music player with offline downloads, synced lyrics, ambient mode and a Wear OS companion. Download the latest APK."
+    />
+    <meta name="theme-color" content="#121318" />
+
+    <link rel="icon" href="/icon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="MusicSM — Your music. Beautifully offline." />
+    <meta
+      property="og:description"
+      content="A glassmorphic Android music player with offline downloads, synced lyrics, ambient mode and a Wear OS companion."
+    />
+    <meta property="og:image" content="/icon.png" />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+
+  <body>
+    <!-- The same drifting aurora the app's ambient mode uses. Purely decorative. -->
+    <div class="aurora" aria-hidden="true">
+      <span class="blob blob-coral"></span>
+      <span class="blob blob-lavender"></span>
+      <span class="blob blob-teal"></span>
+    </div>
+
+    <header class="nav">
+      <div class="shell">
+        <a class="brand" href="/">
+          <img src="/icon.png" alt="" width="34" height="34" />
+          <span>MusicSM</span>
+        </a>
+        <nav class="nav-links">
+          <a class="nav-link is-optional" href="#features">Features</a>
+          <a class="nav-link is-optional" href="#install">Install</a>
+          <a
+            class="nav-link"
+            href="https://github.com/workingpayload/MusicSM"
+            rel="noopener noreferrer"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="shell">
+          <div class="hero-copy">
+            <p class="pill">
+              <span class="dot" aria-hidden="true"></span>
+              <span id="release-pill">Loading the latest build…</span>
+            </p>
+
+            <h1>Your music.<br /><span class="accent">Beautifully offline.</span></h1>
+
+            <p class="tagline">
+              A glassmorphic Android player built around the way you actually listen — downloads
+              that work on a plane, lyrics that keep time, and a home feed that learns from your
+              history instead of guessing.
+            </p>
+
+            <div class="cta-row">
+              <!--
+                Plain link, not a button: it works with JavaScript disabled and falls back to the
+                first published APK. Script only narrows it to a specific asset.
+              -->
+              <a class="btn btn-primary" id="download-btn" href="/api/download">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20.5V19a1 1 0 0 1 1-1Z"
+                  />
+                </svg>
+                <span id="download-label">Download for Android</span>
+              </a>
+
+              <a
+                class="btn btn-ghost"
+                id="release-link"
+                href="https://github.com/workingpayload/MusicSM/releases"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Release notes
+              </a>
+            </div>
+
+            <p class="cta-meta" id="download-meta">Checking the latest release…</p>
+            <ul class="alt-builds" id="alt-builds"></ul>
+          </div>
+
+          <div class="hero-art" aria-hidden="true">
+            <img src="/icon.png" alt="" width="380" height="380" />
+            <div class="meter">
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats" aria-labelledby="stats-heading">
+        <div class="shell">
+          <h2 id="stats-heading" class="visually-hidden">Download statistics</h2>
+          <div class="stat-grid">
+            <div class="card stat stat-coral">
+              <span class="value" id="stat-github" data-count="0">—</span>
+              <span class="label">Downloads from GitHub</span>
+              <span class="note">Every fetch of the APK, counted by GitHub itself</span>
+            </div>
+            <div class="card stat stat-teal" id="stat-page-card" hidden>
+              <span class="value" id="stat-page" data-count="0">—</span>
+              <span class="label">Downloads from this page</span>
+              <span class="note">Clicks that started here</span>
+            </div>
+            <div class="card stat stat-lavender">
+              <span class="value" id="stat-version">—</span>
+              <span class="label">Latest version</span>
+              <span class="note" id="stat-released">Released —</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" aria-labelledby="features-heading">
+        <div class="shell">
+          <p class="eyebrow">What's inside</p>
+          <h2 id="features-heading">Built for people who listen properly</h2>
+          <p class="section-lede">
+            Every one of these ships in the current build — no waitlists, no paid tier, no account.
+          </p>
+
+          <div class="feature-grid">
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M5 20h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-5.6l-1.7-2.1A2 2 0 0 0 10.2 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Zm7-3.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" />
+                </svg>
+              </span>
+              <h3>Real offline downloads</h3>
+              <p>
+                Keep tracks, albums and whole playlists on the device. No connection, no
+                degradation, no silent expiry.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 5.6 6 3.5a1 1 0 0 1 0 1.8l-6 3.5a1 1 0 0 1-1.5-.9V8.5a1 1 0 0 1 1.5-.9Z" />
+                </svg>
+              </span>
+              <h3>A feed that learns</h3>
+              <p>
+                Home is ranked from what you actually played — recent plays, likes and followed
+                artists — not a shuffled list of whatever is trending.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M4 4h6v6H4V4Zm2 2v2h2V6H6Zm8-2h6v6h-6V4Zm2 2v2h2V6h-2ZM4 14h6v6H4v-6Zm2 2v2h2v-2H6Zm8-2h2v2h-2v-2Zm4 0h2v2h-2v-2Zm-4 4h2v2h-2v-2Zm4 0h2v2h-2v-2Z" />
+                </svg>
+              </span>
+              <h3>Share playlists by QR</h3>
+              <p>
+                A playlist becomes a code another phone can scan from across the table. The whole
+                thing travels in the code — no server, no account, no link rot.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" />
+                </svg>
+              </span>
+              <h3>Ambient mode</h3>
+              <p>
+                Dock it and the screen becomes an aurora lit by the album art, with a big clock and
+                slow drift that protects OLED panels overnight.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M4 5h16v2H4V5Zm0 4h10v2H4V9Zm0 4h16v2H4v-2Zm0 4h10v2H4v-2Z" />
+                </svg>
+              </span>
+              <h3>Lyrics that keep time</h3>
+              <p>
+                Synced, line-by-line lyrics that scroll with the track, and a plain view for
+                everything else.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M6 3h2v18H6V3Zm5 5h2v13h-2V8Zm5-5h2v18h-2V3ZM4 9h6v2H4V9Zm5 6h6v2H9v-2Zm5-9h6v2h-6V6Z" />
+                </svg>
+              </span>
+              <h3>Sleep timer and EQ</h3>
+              <p>
+                Fade out at the end of the track rather than mid-chorus, and shape the sound with a
+                built-in equaliser and crossfade.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M8 2h8l-.6 4.2A7 7 0 0 1 19 12a7 7 0 0 1-3.6 6.1L16 22H8l.6-3.9A7 7 0 0 1 5 12a7 7 0 0 1 3.6-5.8L8 2Zm4 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z" />
+                </svg>
+              </span>
+              <h3>Wear OS companion</h3>
+              <p>
+                Skip, pause and browse from the watch, with its own screens rather than a stretched
+                phone layout.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2a10 10 0 0 0 0 20 2.5 2.5 0 0 0 2.5-2.5c0-.65-.25-1.24-.66-1.68a2.48 2.48 0 0 1 1.83-4.16h1.83A4.5 4.5 0 0 0 22 9.16C22 5.2 17.52 2 12 2ZM6.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3.5 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" />
+                </svg>
+              </span>
+              <h3>Make it yours</h3>
+              <p>
+                Light, dark and a true-black AMOLED theme, Material You colour from your wallpaper,
+                or pick an accent yourself.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="install" aria-labelledby="install-heading">
+        <div class="shell">
+          <p class="eyebrow">Getting it on your phone</p>
+          <h2 id="install-heading">Three steps, about a minute</h2>
+          <p class="section-lede">
+            MusicSM isn't on the Play Store, so Android will ask permission before installing it.
+            That prompt is normal for any app installed outside the store.
+          </p>
+
+          <div class="steps">
+            <article class="card step">
+              <h3>Download the APK</h3>
+              <p>
+                Tap the download button above. Your browser may warn that this file type can harm
+                your device — that warning appears for every APK.
+              </p>
+            </article>
+
+            <article class="card step">
+              <h3>Allow your browser to install</h3>
+              <p>
+                Open the downloaded file. Android will offer to take you to
+                <em>Install unknown apps</em>; enable it for the browser you used, then come back.
+              </p>
+            </article>
+
+            <article class="card step">
+              <h3>Install and open</h3>
+              <p>
+                Tap <em>Install</em>, then <em>Open</em>. Nothing to sign up for — the app works the
+                moment it starts.
+              </p>
+            </article>
+          </div>
+
+          <p class="notice">
+            <strong>Requires Android 7.0 or newer.</strong> Downloads are served straight from the
+            project's GitHub releases, so you can always verify the file at source.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="shell">
+        <span>MusicSM · <span id="footer-version">—</span></span>
+        <span>
+          <a href="https://github.com/workingpayload/MusicSM" rel="noopener noreferrer" target="_blank"
+            >Source on GitHub</a
+          >
+        </span>
+      </div>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
