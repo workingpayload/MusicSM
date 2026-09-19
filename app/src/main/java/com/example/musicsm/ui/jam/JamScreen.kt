@@ -114,10 +114,13 @@ fun JamScreen(
     val jam by viewModel.state.collectAsStateWithLifecycle()
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val nearby by viewModel.nearby.collectAsStateWithLifecycle()
+    val permission = rememberLocalNetworkPermission()
 
     // Scan as soon as the screen is idle: a list that is already populated is the whole point.
-    LaunchedEffect(jam is JamState.Off) {
-        if (jam is JamState.Off) viewModel.refreshNearby()
+    // Gated on the permission so arriving at the screen never fires a prompt the user has no
+    // context for — the banner explains it first, and every action asks at the point of use.
+    LaunchedEffect(jam is JamState.Off, permission.granted) {
+        if (jam is JamState.Off && permission.granted) viewModel.refreshNearby()
     }
 
     BackHandler { onBack() }
@@ -163,12 +166,23 @@ fun JamScreen(
             item {
                 when (val current = jam) {
                     JamState.Off -> JamIdlePanel(
-                        onStart = { viewModel.startHosting(viewModel.defaultSessionName()) },
+                        onStart = {
+                            permission.runWhenGranted {
+                                viewModel.startHosting(viewModel.defaultSessionName())
+                            }
+                        },
                         nearby = nearby,
-                        onRefresh = viewModel::refreshNearby,
-                        onJoin = viewModel::joinDiscovered,
-                        onJoinByCode = viewModel::joinByCode,
-                        onJoinByAddress = viewModel::joinByAddress,
+                        permission = permission,
+                        onRefresh = { permission.runWhenGranted(viewModel::refreshNearby) },
+                        onJoin = { jamToJoin ->
+                            permission.runWhenGranted { viewModel.joinDiscovered(jamToJoin) }
+                        },
+                        onJoinByCode = { code ->
+                            permission.runWhenGranted { viewModel.joinByCode(code) }
+                        },
+                        onJoinByAddress = { address, code ->
+                            permission.runWhenGranted { viewModel.joinByAddress(address, code) }
+                        },
                         isCodeComplete = viewModel::isCodeComplete,
                     )
 
@@ -249,6 +263,7 @@ fun JamScreen(
 private fun JamIdlePanel(
     onStart: () -> Unit,
     nearby: JamNearbyState,
+    permission: LocalNetworkPermissionState,
     onRefresh: () -> Unit,
     onJoin: (DiscoveredJam) -> Unit,
     onJoinByCode: (String) -> Unit,
@@ -281,6 +296,10 @@ private fun JamIdlePanel(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(20.dp))
+        if (!permission.granted) {
+            JamPermissionBanner(permission = permission)
+            Spacer(Modifier.height(20.dp))
+        }
         Button(
             onClick = onStart,
             colors = ButtonDefaults.buttonColors(containerColor = Coral, contentColor = OnAccent),
@@ -563,6 +582,52 @@ private fun JamManualAddressEntry(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
+    }
+}
+
+/**
+ * Explains why Jam is asking for the network before it asks.
+ *
+ * Android 17 blocks local-network traffic outright until this is granted, and the system prompt on
+ * its own gives the user no idea why a music app wants it — so the reason leads, and the prompt
+ * only appears on a deliberate tap.
+ */
+@Composable
+private fun JamPermissionBanner(permission: LocalNetworkPermissionState) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceLow)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            stringResource(R.string.jam_permission_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = OnDark,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(
+                if (permission.denied) {
+                    R.string.jam_permission_denied
+                } else {
+                    R.string.jam_permission_body
+                },
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = permission.request,
+            colors = ButtonDefaults.buttonColors(containerColor = Coral, contentColor = OnAccent),
+            shape = RoundedCornerShape(50),
+        ) { Text(stringResource(R.string.jam_permission_allow)) }
     }
 }
 

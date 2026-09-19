@@ -447,6 +447,36 @@ TCP to a known address survives the conditions that kill a broadcast, so this wo
 
 **Diagnosing it from outside the app:** `jam-net-test.js` (kept with the session, not the repo) impersonates either half of the discovery protocol from a laptop — `--browse` to test whether a hosting phone answers, `--serve` to test whether a guest phone can find anything, `--sniff` to see whether probes arrive at all. Since both phones and the laptop speak the same wire format, this splits "the host isn't advertising" from "the guest isn't finding" from "the network is eating the packets", which is otherwise indistinguishable from inside the app.
 
+### 18c. The actual cause: Android 17 blocks the local network by default
+
+Everything above was built on the assumption that the packets were reaching the network and something was dropping them. They were not reaching the network at all.
+
+This app sets `targetSdk = 37`. Android 17 makes **Local Network Protection** mandatory at exactly that target, and the platform's own table is unambiguous about the scope:
+
+| Operation | Permission required |
+|---|---|
+| Making an outgoing TCP connection | yes |
+| Accepting an incoming TCP connection | yes |
+| Sending UDP unicast, multicast or broadcast | yes |
+| Receiving UDP unicast, multicast or broadcast | yes |
+
+Apps targeting below 37 receive an implicit grant; the moment the target moves to 37 the default becomes *blocked*. The restriction is implemented inside the networking stack, so it applies to raw sockets and cannot be distinguished, from inside the app, from a network that simply drops packets. The manifest declared `INTERNET` and `CHANGE_WIFI_MULTICAST_STATE` but not `ACCESS_LOCAL_NETWORK`, so on an Android 17 device **every** part of Jam was dead: the beacon could not receive probes, discovery could not send them, and the TCP session could neither connect nor accept.
+
+That accounts for every symptom, including the two that had looked most diagnostic and were in fact red herrings — the phone hotspot failing (which seemed to rule out AP isolation, and did, but only because the network was never the problem) and the manual-address path failing too (which seemed to rule out discovery, and did, for the same reason).
+
+The fix is `ACCESS_LOCAL_NETWORK`, declared in the manifest and requested at runtime:
+
+| Decision | Why |
+|---|---|
+| The permission name is a **string literal**, and the API level a named constant, rather than `Manifest.permission.ACCESS_LOCAL_NETWORK` | Keeps the app compiling against an SDK that predates the constant. The name is public platform API and stable |
+| `requiredPermission` is **null below API 37** | Those releases grant it implicitly, and the docs are explicit that an app must not request it before targeting 37. Nothing is asked of a user who does not need to be asked |
+| A **rationale banner precedes the system prompt**, which only appears on a deliberate tap | A bare OS dialog asking a music player for network access, fired on arriving at a screen, reads like a mistake and gets denied |
+| `runWhenGranted` holds the pending action across the prompt | The tap that triggered the request still takes effect once the user says yes, instead of being silently swallowed |
+| Auto-scan on entering the idle screen is gated on the grant | Otherwise the screen would prompt before explaining |
+| Denial is a distinct message naming **Settings › Apps › MusicSM › Permissions › Nearby devices** | `ACCESS_LOCAL_NETWORK` sits in the `NEARBY_DEVICES` group, so that — not "Local network" — is what the user will actually see |
+
+The lesson worth keeping: the three preceding rounds of work all treated the symptom as a networking problem because that is what it looked like from inside the app. A permission that fails sockets at the kernel is indistinguishable from a hostile network, and `targetSdk` had been bumped to the newest available without auditing what the new target changed by default. **Raising `targetSdk` is a behavioural change, not a version number.**
+
 ---
 
 *Generated from a full audit of the v1.5.0 source tree. File references point at the code that would need to change.*

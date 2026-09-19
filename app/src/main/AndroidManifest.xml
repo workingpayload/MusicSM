@@ -5,6 +5,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Lets the Jam host actually receive discovery broadcasts; install-time, never prompts. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!--
+        Android 17 blocks all local-network traffic by default for apps targeting SDK 37+ —
+        outgoing and incoming TCP, and UDP in both directions. Jam is entirely local-network, so
+        without this it cannot host, discover or connect at all. Requested at runtime by the Jam
+        screen; older releases grant it implicitly and are never prompted.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

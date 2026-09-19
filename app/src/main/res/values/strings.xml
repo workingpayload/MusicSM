@@ -369,6 +369,10 @@
     <string name="jam_code_placeholder">ABC-123</string>
     <string name="jam_code_join">Join</string>
     <string name="jam_code_not_found">No Jam is using that code. Check the code and that you\'re on the same Wi-Fi.</string>
+    <string name="jam_permission_title">Allow local network access</string>
+    <string name="jam_permission_body">Android blocks apps from reaching other devices on your Wi-Fi until you allow it. Jam needs this to find nearby devices and connect to them.</string>
+    <string name="jam_permission_denied">Jam can\'t find or connect to anything without local network access. Allow it here, or turn it on in Settings › Apps › MusicSM › Permissions › Nearby devices.</string>
+    <string name="jam_permission_allow">Allow</string>
     <string name="jam_manual_header">Still can\'t find it?</string>
     <string name="jam_manual_hint">Some networks block automatic discovery. Type the code above, then the address shown on the host\'s screen.</string>
     <string name="jam_manual_placeholder">192.168.1.5</string>
