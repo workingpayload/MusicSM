@@ -51,7 +51,10 @@ fun MusicSmNavHost(
         },
     ) {
         composable(Routes.HOME) {
-            HomeScreen(onPlaySongs = { songs, index -> playerViewModel.play(songs, index) })
+            HomeScreen(
+                onPlaySongs = { songs, index -> playerViewModel.play(songs, index) },
+                onOpenJam = { navController.navigate(Routes.JAM) },
+            )
         }
         composable(Routes.SEARCH) {
             SearchScreen(

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,12 +64,16 @@ import com.example.musicsm.ui.components.SkeletonBlock
 import com.example.musicsm.ui.components.rememberShimmerProgress
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
+import com.example.musicsm.ui.theme.OnAccent
+import com.example.musicsm.ui.theme.OnDark
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.StitchBackground
 import com.example.musicsm.ui.theme.SurfaceLow
 
 @Composable
 fun HomeScreen(
     onPlaySongs: (List<Song>, Int) -> Unit,
+    onOpenJam: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -76,21 +81,25 @@ fun HomeScreen(
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
 
     // Ambient aurora backdrop (coral + lavender blooms), like the Stitch design.
+    // Palette tokens are composable reads, so they are hoisted out of the draw lambda.
+    val backdrop = StitchBackground
+    val bloomA = Coral
+    val bloomB = Lavender
     Box(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(StitchBackground)
+                drawRect(backdrop)
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(Coral.copy(alpha = 0.22f), Color.Transparent),
+                        colors = listOf(bloomA.copy(alpha = 0.22f), Color.Transparent),
                         center = Offset(size.width * 0.12f, size.height * 0.04f),
                         radius = size.width * 0.7f,
                     ),
                 )
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(Lavender.copy(alpha = 0.16f), Color.Transparent),
+                        colors = listOf(bloomB.copy(alpha = 0.16f), Color.Transparent),
                         center = Offset(size.width * 0.95f, size.height * 0.25f),
                         radius = size.width * 0.7f,
                     ),
@@ -114,6 +123,22 @@ fun HomeScreen(
                 is HomeUiState.Content -> HomeContent(s.feed.sections, s.offline, onPlaySongs, viewModel::saveShelf)
             }
         }
+
+        // Deliberately outside the state branches: a phone on a data-less hotspot lands on the
+        // error state, and that is exactly when someone wants to join a Jam.
+        IconButton(
+            onClick = onOpenJam,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 12.dp, end = 8.dp),
+        ) {
+            Icon(
+                Icons.Filled.Groups,
+                contentDescription = stringResource(R.string.jam_open),
+                tint = MaterialTheme.colorScheme.onBackground,
+            )
+        }
     }
 }
 
@@ -135,12 +160,16 @@ private fun HomeContent(
     ) {
         // Header
         item {
-            Column(modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp, end = 16.dp)) {
+            Row(
+                modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp, end = 56.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = stringResource(if (offline) R.string.home_title_offline else R.string.home_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -152,7 +181,7 @@ private fun HomeContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.06f))
+                        .background(OverlayTint.copy(alpha = 0.06f))
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -328,14 +357,14 @@ private fun HeroCard(
                     song.title,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = OnDark,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     song.artist,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.8f),
+                    color = OverlayTint.copy(alpha = 0.8f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -351,7 +380,7 @@ private fun HeroCard(
                     .size(56.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play), tint = Color.White, modifier = Modifier.size(30.dp))
+                    Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play), tint = OnAccent, modifier = Modifier.size(30.dp))
                 }
             }
         }
