@@ -1,13 +1,18 @@
 package com.example.musicsm.data.jam
 
+import android.content.Context
+import com.example.musicsm.domain.jam.DiscoveredJam
 import com.example.musicsm.domain.jam.JamCommand
+import com.example.musicsm.domain.jam.JamDiscoveryProtocol
 import com.example.musicsm.domain.jam.JamInvite
+import com.example.musicsm.domain.jam.JamJoinCode
 import com.example.musicsm.domain.jam.JamMember
 import com.example.musicsm.domain.jam.JamMessage
 import com.example.musicsm.domain.jam.JamRole
 import com.example.musicsm.domain.jam.JamSnapshot
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.playback.MediaControllerManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,6 +39,10 @@ sealed interface JamState {
     data class Hosting(
         val invite: JamInvite,
         val members: List<JamMember>,
+        /** Short code a guest can type when scanning isn't an option, which is most of the time. */
+        val joinCode: String = "",
+        /** Whether this Jam answers "who's out there?" probes and appears in nearby lists. */
+        val discoverable: Boolean = true,
     ) : JamState
 
     data class Connecting(val invite: JamInvite) : JamState
@@ -62,6 +71,7 @@ sealed interface JamState {
 @Singleton
 class JamManager @Inject constructor(
     private val controller: MediaControllerManager,
+    @param:ApplicationContext private val context: Context,
 ) {
 
     // Application-scoped on purpose: a Jam must outlive the screen that started it, exactly like
@@ -73,6 +83,7 @@ class JamManager @Inject constructor(
 
     private var server: JamServer? = null
     private var client: JamClient? = null
+    private var beacon: JamBeacon? = null
     private var broadcastJobs = mutableListOf<Job>()
     private var members: List<JamMember> = emptyList()
 
@@ -123,15 +134,73 @@ class JamManager @Inject constructor(
         _state.value = JamState.Hosting(
             invite = JamInvite(address, jamServer.port, token, sessionName),
             members = members,
+            joinCode = JamJoinCode.random(),
+            discoverable = true,
         )
+        startBeacon(hostDisplayName)
         startBroadcasting()
+        return true
+    }
+
+    /**
+     * Starts answering discovery probes.
+     *
+     * The beacon reads [state] on every probe rather than capturing the session, so it reports the
+     * live code and discoverability, and stops answering on its own once hosting ends.
+     */
+    private fun startBeacon(hostDisplayName: String) {
+        val jamBeacon = JamBeacon(
+            scope = scope,
+            wifiLock = WifiMulticastLock(context),
+        ) {
+            val hosting = _state.value as? JamState.Hosting ?: return@JamBeacon null
+            JamBeacon.Announcement(
+                info = JamDiscoveryProtocol.Announcement(
+                    sessionName = hosting.invite.sessionName,
+                    hostName = hostDisplayName,
+                    port = hosting.invite.port,
+                    token = hosting.invite.token,
+                ),
+                code = hosting.joinCode,
+                discoverable = hosting.discoverable,
+            )
+        }
+        beacon = jamBeacon.takeIf { it.start() }
+    }
+
+    /** Hides this Jam from nearby lists. The join code keeps working either way. */
+    fun setDiscoverable(discoverable: Boolean) {
+        val hosting = _state.value as? JamState.Hosting ?: return
+        _state.value = hosting.copy(discoverable = discoverable)
+    }
+
+    /** Jams currently answering on this network. Empty is a normal result, not an error. */
+    suspend fun browseNearby(): List<DiscoveredJam> = JamDiscovery.browse()
+
+    /**
+     * Joins by typed code, resolving it to a host over the network first.
+     *
+     * @return false if the code is malformed or nobody claimed it, leaving [state] untouched so
+     * the caller can show an inline error rather than tearing the screen down.
+     */
+    suspend fun joinByCode(code: String, displayName: String): Boolean {
+        val normalized = JamJoinCode.normalize(code) ?: return false
+        val invite = JamDiscovery.resolve(normalized) ?: return false
+        join(invite, displayName)
         return true
     }
 
     /** Joins the session described by [invite] as a remote control. */
     fun join(invite: JamInvite, displayName: String) {
         if (isGuest) return
-        scope.launch { leave() }
+        // Tearing down and connecting must happen in that order on one coroutine. Launching the
+        // teardown separately let it land *after* the new client was installed, which nulled the
+        // fresh connection out and dropped the UI back to idle mid-connect.
+        scope.launch { startJoin(invite, displayName) }
+    }
+
+    private suspend fun startJoin(invite: JamInvite, displayName: String) {
+        leave()
 
         _state.value = JamState.Connecting(invite)
         val jamClient = JamClient(
@@ -171,6 +240,9 @@ class JamManager @Inject constructor(
     suspend fun leave() {
         broadcastJobs.forEach(Job::cancel)
         broadcastJobs.clear()
+
+        beacon?.stop()
+        beacon = null
 
         client?.disconnect()
         client = null

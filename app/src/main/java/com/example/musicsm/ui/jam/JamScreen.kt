@@ -8,6 +8,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,19 +32,35 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +79,8 @@ import com.example.musicsm.data.jam.JamManager
 import com.example.musicsm.data.jam.JamServer
 import com.example.musicsm.data.jam.JamState
 import com.example.musicsm.data.jam.JamClient
+import com.example.musicsm.domain.jam.DiscoveredJam
+import com.example.musicsm.domain.jam.JamJoinCode
 import com.example.musicsm.domain.jam.JamMember
 import com.example.musicsm.domain.jam.JamRole
 import com.example.musicsm.ui.components.EmptyState
@@ -94,6 +113,12 @@ fun JamScreen(
 ) {
     val jam by viewModel.state.collectAsStateWithLifecycle()
     val ui by viewModel.ui.collectAsStateWithLifecycle()
+    val nearby by viewModel.nearby.collectAsStateWithLifecycle()
+
+    // Scan as soon as the screen is idle: a list that is already populated is the whole point.
+    LaunchedEffect(jam is JamState.Off) {
+        if (jam is JamState.Off) viewModel.refreshNearby()
+    }
 
     BackHandler { onBack() }
 
@@ -139,11 +164,19 @@ fun JamScreen(
                 when (val current = jam) {
                     JamState.Off -> JamIdlePanel(
                         onStart = { viewModel.startHosting(viewModel.defaultSessionName()) },
+                        nearby = nearby,
+                        onRefresh = viewModel::refreshNearby,
+                        onJoin = viewModel::joinDiscovered,
+                        onJoinByCode = viewModel::joinByCode,
+                        isCodeComplete = viewModel::isCodeComplete,
                     )
 
                     is JamState.Connecting -> JamConnectingPanel(current.invite.sessionName)
 
-                    is JamState.Hosting -> JamHostPanel(state = current)
+                    is JamState.Hosting -> JamHostPanel(
+                        state = current,
+                        onDiscoverableChange = viewModel::setDiscoverable,
+                    )
 
                     is JamState.Guest -> JamGuestPanel(sessionName = current.sessionName)
 
@@ -212,7 +245,14 @@ fun JamScreen(
 }
 
 @Composable
-private fun JamIdlePanel(onStart: () -> Unit) {
+private fun JamIdlePanel(
+    onStart: () -> Unit,
+    nearby: JamNearbyState,
+    onRefresh: () -> Unit,
+    onJoin: (DiscoveredJam) -> Unit,
+    onJoinByCode: (String) -> Unit,
+    isCodeComplete: (String) -> Boolean,
+) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -244,18 +284,209 @@ private fun JamIdlePanel(onStart: () -> Unit) {
             colors = ButtonDefaults.buttonColors(containerColor = Coral, contentColor = OnAccent),
             shape = RoundedCornerShape(50),
         ) { Text(stringResource(R.string.jam_start)) }
-        Spacer(Modifier.height(16.dp))
+
+        Spacer(Modifier.height(28.dp))
+        HorizontalDivider(color = OnDarkVariant.copy(alpha = 0.2f))
+        Spacer(Modifier.height(20.dp))
+
+        JamNearbySection(nearby = nearby, onRefresh = onRefresh, onJoin = onJoin)
+
+        Spacer(Modifier.height(24.dp))
+        JamCodeEntry(
+            nearby = nearby,
+            onJoinByCode = onJoinByCode,
+            isCodeComplete = isCodeComplete,
+        )
+    }
+}
+
+/**
+ * The list of Jams found on this Wi-Fi.
+ *
+ * This is the primary way in. The QR code it replaced looked fine but did not work on real
+ * hardware: OEM camera apps only offer to open `http(s)` codes, so scanning a `musicsm://` link
+ * produced no prompt at all on the phones this was tested against.
+ */
+@Composable
+private fun JamNearbySection(
+    nearby: JamNearbyState,
+    onRefresh: () -> Unit,
+    onJoin: (DiscoveredJam) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            stringResource(R.string.jam_join_hint),
+            stringResource(R.string.jam_nearby_header),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = OnDark,
+            modifier = Modifier.weight(1f),
+        )
+        if (nearby.scanning) {
+            CircularProgressIndicator(
+                strokeWidth = 2.dp,
+                color = Coral,
+                modifier = Modifier.size(18.dp),
+            )
+        } else {
+            IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Filled.Refresh,
+                    contentDescription = stringResource(R.string.jam_nearby_refresh),
+                    tint = OnDarkVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+
+    when {
+        nearby.jams.isNotEmpty() -> {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                nearby.jams.forEach { jam ->
+                    JamNearbyRow(jam = jam, onClick = { onJoin(jam) })
+                }
+            }
+        }
+        // "Looking" and "found nothing" must not look the same, or the user just waits.
+        nearby.scanning -> Text(
+            stringResource(R.string.jam_nearby_scanning),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+        )
+
+        nearby.scanned -> Text(
+            stringResource(R.string.jam_nearby_empty),
             style = MaterialTheme.typography.bodySmall,
             color = OnDarkVariant,
             textAlign = TextAlign.Center,
+        )
+
+        else -> Unit
+    }
+}
+
+@Composable
+private fun JamNearbyRow(jam: DiscoveredJam, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceLow)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Wifi, contentDescription = null, tint = Coral, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                jam.invite.sessionName.ifBlank { stringResource(R.string.jam_title) },
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = OnDark,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (jam.hostName.isNotBlank()) {
+                Text(
+                    jam.hostName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OnDarkVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.jam_nearby_join),
+            style = MaterialTheme.typography.labelLarge,
+            color = Coral,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/** Typing a code always works, even where broadcast discovery is filtered or a host is hidden. */
+@Composable
+private fun JamCodeEntry(
+    nearby: JamNearbyState,
+    onJoinByCode: (String) -> Unit,
+    isCodeComplete: (String) -> Boolean,
+) {
+    var code by rememberSaveable { mutableStateOf("") }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val complete = isCodeComplete(code)
+
+    val submit = {
+        if (complete && !nearby.codeBusy) {
+            keyboard?.hide()
+            onJoinByCode(code)
+        }
+    }
+
+    Text(
+        stringResource(R.string.jam_code_header),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = OnDark,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        OutlinedTextField(
+            value = code,
+            onValueChange = { typed -> code = typed.take(CODE_INPUT_LIMIT) },
+            singleLine = true,
+            isError = nearby.codeFailed,
+            placeholder = { Text(stringResource(R.string.jam_code_placeholder), color = OnDarkVariant) },
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Characters,
+                autoCorrectEnabled = false,
+                imeAction = ImeAction.Go,
+            ),
+            keyboardActions = KeyboardActions(onGo = { submit() }),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = submit,
+            enabled = complete && !nearby.codeBusy,
+            colors = ButtonDefaults.buttonColors(containerColor = Coral, contentColor = OnAccent),
+            shape = RoundedCornerShape(50),
+        ) {
+            if (nearby.codeBusy) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    color = OnAccent,
+                    modifier = Modifier.size(18.dp),
+                )
+            } else {
+                Text(stringResource(R.string.jam_code_join))
+            }
+        }
+    }
+    if (nearby.codeFailed) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.jam_code_not_found),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
         )
     }
 }
 
 @Composable
-private fun JamHostPanel(state: JamState.Hosting) {
+private fun JamHostPanel(state: JamState.Hosting, onDiscoverableChange: (Boolean) -> Unit) {
     val context = LocalContext.current
     val link = state.invite.toUri()
     val matrix = rememberQrMatrix(link)
@@ -280,6 +511,58 @@ private fun JamHostPanel(state: JamState.Hosting) {
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(16.dp))
+
+        // The code leads, not the QR: this is the path that actually works on every phone.
+        Text(
+            stringResource(R.string.jam_code_label),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            JamJoinCode.format(state.joinCode),
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+            color = Coral,
+            letterSpacing = 4.sp,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(R.string.jam_code_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(Modifier.height(20.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceLow)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.jam_discoverable),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OnDark,
+                )
+                Text(
+                    stringResource(R.string.jam_discoverable_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OnDarkVariant,
+                )
+            }
+            Switch(
+                checked = state.discoverable,
+                onCheckedChange = onDiscoverableChange,
+                colors = SwitchDefaults.colors(checkedTrackColor = Coral, checkedThumbColor = OnAccent),
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
 
         if (matrix != null) {
             Box(
@@ -511,3 +794,6 @@ private fun copyJamLink(context: Context, label: String, link: String) {
         Toast.makeText(context, context.getString(R.string.jam_link_copied), Toast.LENGTH_SHORT).show()
     }
 }
+
+/** Generous enough for hyphens and spaces, tight enough to stop a paste filling the field. */
+private const val CODE_INPUT_LIMIT = 12

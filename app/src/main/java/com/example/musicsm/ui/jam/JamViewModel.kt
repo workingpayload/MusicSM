@@ -5,12 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.musicsm.data.jam.JamManager
 import com.example.musicsm.data.jam.JamState
+import com.example.musicsm.domain.jam.DiscoveredJam
 import com.example.musicsm.domain.jam.JamCommand
+import com.example.musicsm.domain.jam.JamJoinCode
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.playback.MediaControllerManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -21,6 +26,20 @@ data class JamUiState(
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = 0,
     val isPlaying: Boolean = false,
+)
+
+/**
+ * The "how do I get in?" half of the idle screen.
+ *
+ * Scanning is surfaced explicitly because an empty list is ambiguous — "still looking" and "found
+ * nothing, check your Wi-Fi" need to read differently or the user just waits forever.
+ */
+data class JamNearbyState(
+    val scanning: Boolean = false,
+    val scanned: Boolean = false,
+    val jams: List<DiscoveredJam> = emptyList(),
+    val codeBusy: Boolean = false,
+    val codeFailed: Boolean = false,
 )
 
 @HiltViewModel
@@ -55,6 +74,52 @@ class JamViewModel @Inject constructor(
 
     /** Default session name: recognisable on a stranger's screen without being personal. */
     fun defaultSessionName(): String = Build.MODEL.ifBlank { DEFAULT_NAME }
+
+    private val _nearby = MutableStateFlow(JamNearbyState())
+    val nearby: StateFlow<JamNearbyState> = _nearby.asStateFlow()
+
+    private var scanJob: Job? = null
+
+    /**
+     * Looks for Jams on this Wi-Fi.
+     *
+     * Restarting cancels any scan in flight, so hammering the refresh button can't leave two
+     * overlapping scans racing to publish different lists.
+     */
+    fun refreshNearby() {
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch {
+            _nearby.value = _nearby.value.copy(scanning = true, codeFailed = false)
+            val found = jamManager.browseNearby()
+            _nearby.value = _nearby.value.copy(scanning = false, scanned = true, jams = found)
+        }
+    }
+
+    fun joinDiscovered(jam: DiscoveredJam) {
+        jamManager.join(jam.invite, displayName = defaultSessionName())
+    }
+
+    /** True if [code] could even be a code — lets the UI enable the button without a round trip. */
+    fun isCodeComplete(code: String): Boolean = JamJoinCode.normalize(code) != null
+
+    /**
+     * Resolves a typed code over the network and joins it.
+     *
+     * Failure is kept local to this state rather than going through [JamState.Failed]: a typo
+     * should leave the user on the idle screen with the field still filled in, not bounce them
+     * through a full-screen error.
+     */
+    fun joinByCode(code: String) {
+        if (_nearby.value.codeBusy) return
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch {
+            _nearby.value = _nearby.value.copy(codeBusy = true, codeFailed = false)
+            val joined = jamManager.joinByCode(code, displayName = defaultSessionName())
+            _nearby.value = _nearby.value.copy(codeBusy = false, codeFailed = !joined)
+        }
+    }
+
+    fun setDiscoverable(discoverable: Boolean) = jamManager.setDiscoverable(discoverable)
 
     fun startHosting(sessionName: String) {
         viewModelScope.launch {

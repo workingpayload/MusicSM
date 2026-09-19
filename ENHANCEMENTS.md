@@ -403,7 +403,31 @@ Covered by 28 unit tests (`JamProtocolTest`, `JamInviteTest`, `JamLoopbackTest`)
 
 **Known limitation:** many public and corporate Wi-Fi networks enable **AP isolation**, which blocks client-to-client traffic and will stop a Jam from connecting with no way for the app to tell that apart from a wrong network. Phone hotspots and home Wi-Fi are fine.
 
-Verification: `assembleDebug`, `assembleRelease`, 99 unit tests passing, lint unchanged at its 9 pre-existing errors. Jam has been validated **in-process over loopback only** — it has never run on two physical devices.
+### 18a. The QR code didn't survive contact with real phones
+
+Tested on a OnePlus Nord and a Galaxy S23, **scanning produced no prompt at all**. The cause is not the app: OEM camera apps only offer to open `http(s)` QR codes and silently ignore a custom scheme like `musicsm://`. The manifest filter, `onNewIntent` and the URI parsing were all verified correct — the link works perfectly when tapped from a message. There is simply no prompt to tap, so "point your camera at it" was never going to be the primary way in.
+
+There is no fix available on the QR side. `https` links would need a real domain and App Links verification, and an in-app scanner would mean asking for `CAMERA` — a permission this app has gone out of its way never to request. So discovery was rebuilt around the network instead, and the QR demoted to a third-choice fallback with an honest caption.
+
+**Nearby Jams** — the host answers UDP probes on a fixed port while a guest broadcasts and lists whoever replies:
+
+| Decision | Why |
+|---|---|
+| The host's address is taken from the **datagram's source**, never from the payload | Shorter, and it stops a host having to guess which of its interfaces a guest can reach. It also means a forged payload cannot point a guest at a third party |
+| Probes are re-sent every 600 ms across **every** interface broadcast address, plus `255.255.255.255` | UDP may drop them, phones hold several interfaces at once, and many Android builds ignore the global broadcast address while honouring the directed one. Sending wide and deduplicating beats guessing |
+| The host holds a `MulticastLock` while hosting | Samsung and OnePlus Wi-Fi drivers filter frames not addressed to the device, which would have made the host silently undiscoverable — the exact failure being fixed. Costs the `CHANGE_WIFI_MULTICAST_STATE` permission, which is install-time and never prompts |
+| `reuseAddress` on the beacon socket | A beacon torn down moments earlier leaves the port in `TIME_WAIT`; without this the *second* Jam of a session would silently fail to be discoverable |
+| "Scanning" and "found nothing" are distinct UI states | An empty list that might still be loading leaves the user waiting forever |
+
+**Join code** — a six-character Crockford Base32 code (`K7M-2P9`), resolved to a host over the same UDP channel:
+
+- The code is a **secret, not an address**. Encoding an IPv4 and port would have needed thirteen characters; resolving a short secret over the network needs six, and keeps working if the host's address changes.
+- `I`, `L` and `O` are folded to `1`, `1` and `0` on input rather than rejected — someone reading `0` aloud as "oh" should not be told their code is wrong. `U` is excluded outright, which both follows Crockford and makes an accidental obscenity unlikely in a code people read across a room.
+- A **"Show in nearby Jams" toggle** gates only the *browse* reply. A host that turns it off disappears from every list but stays joinable by anyone who was told the code, so the token's original purpose — keeping a co-located stranger out — survives discovery being added.
+
+Covered by 38 further tests, including `JamDiscoveryLoopbackTest`, which drives a real beacon against real probes over loopback UDP and asserts the hidden-host, wrong-code, stopped-beacon and port-rebinding paths.
+
+**A race this work exposed:** `JamManager.join` launched its teardown on a separate coroutine and then installed the new client synchronously. The teardown could therefore land *after* the new connection, null it out and drop the UI back to idle mid-connect. Joining is now a single sequential coroutine. It had never been hit because the only way to join was a QR code that never worked.
 
 ---
 
