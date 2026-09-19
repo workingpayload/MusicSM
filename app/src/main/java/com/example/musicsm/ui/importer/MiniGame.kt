@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
+import com.example.musicsm.ui.theme.OnDark
 import com.example.musicsm.ui.theme.OnDarkVariant
+import com.example.musicsm.ui.theme.OverlayTint
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -50,7 +52,7 @@ fun ModernProgressBar(progress: Float, modifier: Modifier = Modifier) {
         modifier = modifier
             .height(12.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.08f)),
+            .background(OverlayTint.copy(alpha = 0.08f)),
     ) {
         Box(
             Modifier
@@ -77,7 +79,7 @@ fun MiniGame(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .height(220.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White.copy(alpha = 0.05f)),
+            .background(OverlayTint.copy(alpha = 0.05f)),
     ) {
         val maxX = (constraints.maxWidth - targetPx).coerceAtLeast(1f)
         val maxY = (constraints.maxHeight - targetPx).coerceAtLeast(1f)
@@ -113,7 +115,7 @@ fun MiniGame(modifier: Modifier = Modifier) {
                 ) { score++; move() },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+            Icon(Icons.Filled.MusicNote, contentDescription = null, tint = OnDark, modifier = Modifier.size(26.dp))
         }
     }
 }

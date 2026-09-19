@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.Teal
 
 /**
@@ -51,7 +52,7 @@ fun FlowingHueBar(
             .fillMaxWidth()
             .height(height)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.22f)),
+            .background(OverlayTint.copy(alpha = 0.22f)),
     ) {
         val w = constraints.maxWidth.toFloat().coerceAtLeast(1f)
         val shift = phase * w

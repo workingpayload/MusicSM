@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -67,7 +68,10 @@ import com.example.musicsm.ui.components.rememberDominantColorState
 import com.example.musicsm.ui.actions.SongExtraAction
 import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.player.PlayerViewModel
+import com.example.musicsm.ui.share.PlaylistShareSheet
 import com.example.musicsm.ui.theme.AppBackground
+import com.example.musicsm.ui.theme.OnAccent
+import com.example.musicsm.ui.theme.OnDark
 import com.example.musicsm.ui.theme.OnDarkVariant
 
 @Composable
@@ -85,6 +89,7 @@ fun PlaylistDetailScreen(
         fallback = accentColorFor(ui.title),
     )
     var showDelete by remember { mutableStateOf(false) }
+    var showShare by remember { mutableStateOf(false) }
     var optionsSong by remember { mutableStateOf<com.example.musicsm.domain.model.Song?>(null) }
     BackHandler { onBack() }
     val context = LocalContext.current
@@ -116,6 +121,9 @@ fun PlaylistDetailScreen(
                     onSelect = viewModel::setSort,
                     tint = MaterialTheme.colorScheme.onBackground,
                 )
+                IconButton(onClick = { showShare = true }) {
+                    Icon(Icons.Filled.QrCode2, contentDescription = stringResource(R.string.share_playlist), tint = MaterialTheme.colorScheme.onBackground)
+                }
                 IconButton(onClick = { downloadViewModel.downloadAll(ui.songs) }) {
                     Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.playlist_download_all), tint = MaterialTheme.colorScheme.onBackground)
                 }
@@ -127,6 +135,8 @@ fun PlaylistDetailScreen(
             }
         }
 
+        // Palette tokens are composable reads, so hoist before the draw lambda below.
+        val backdrop = AppBackground
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarPadding.current)) {
             item {
                 Box(
@@ -139,7 +149,7 @@ fun PlaylistDetailScreen(
                                 Brush.verticalGradient(
                                     0.0f to c.copy(alpha = 0.85f),
                                     0.5f to c.copy(alpha = 0.35f),
-                                    1.0f to AppBackground,
+                                    1.0f to backdrop,
                                 ),
                             )
                         },
@@ -166,7 +176,7 @@ fun PlaylistDetailScreen(
                                 Icon(
                                     Icons.Filled.AddPhotoAlternate,
                                     contentDescription = stringResource(R.string.playlist_add_cover),
-                                    tint = Color.White,
+                                    tint = OnDark,
                                     modifier = Modifier.size(28.dp),
                                 )
                             }
@@ -219,7 +229,7 @@ fun PlaylistDetailScreen(
                         modifier = Modifier.size(56.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play), tint = Color.Black, modifier = Modifier.size(32.dp))
+                            Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play), tint = OnAccent, modifier = Modifier.size(32.dp))
                         }
                     }
                 }
@@ -264,6 +274,14 @@ fun PlaylistDetailScreen(
                 destructive = true,
                 onAction = { viewModel.remove(song) },
             ),
+        )
+    }
+
+    if (showShare) {
+        PlaylistShareSheet(
+            playlistName = ui.title,
+            songs = ui.songs,
+            onDismiss = { showShare = false },
         )
     }
 

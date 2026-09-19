@@ -18,23 +18,30 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.example.musicsm.ui.theme.OverlayTint
 
 /**
  * A moving diagonal highlight overlaid on a translucent base — the standard shimmer placeholder.
  * Apply to any sized box to make it read as "loading".
+ *
+ * [tint] defaults to the theme's overlay tint so the sweep stays visible on light surfaces.
  */
-fun Modifier.shimmer(progress: Float): Modifier = this.drawWithContent {
+fun Modifier.shimmer(progress: Float, tint: Color): Modifier = this.drawWithContent {
     drawContent()
     val sweep = size.width * 1.5f
     val x = (progress * (size.width + sweep)) - sweep
     drawRect(
         brush = Brush.linearGradient(
-            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.18f), Color.Transparent),
+            colors = listOf(Color.Transparent, tint.copy(alpha = 0.18f), Color.Transparent),
             start = Offset(x, 0f),
             end = Offset(x + sweep, size.height),
         ),
     )
 }
+
+/** Composable overload that picks up the active palette automatically. */
+@Composable
+fun Modifier.shimmer(progress: Float): Modifier = shimmer(progress, OverlayTint)
 
 @Composable
 fun rememberShimmerProgress(): Float {
@@ -58,7 +65,7 @@ fun SkeletonBlock(
     Box(
         modifier = modifier
             .clip(shape)
-            .background(Color.White.copy(alpha = 0.07f))
+            .background(OverlayTint.copy(alpha = 0.07f))
             .shimmer(progress),
     )
 }

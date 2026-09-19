@@ -5,10 +5,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicsm.navigation.AppIntent
 import com.example.musicsm.navigation.MusicSmRoot
 import com.example.musicsm.navigation.toAppIntent
 import com.example.musicsm.playback.MediaControllerManager
+import com.example.musicsm.ui.theme.AppThemeViewModel
 import com.example.musicsm.ui.theme.MusicSMTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +34,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) appIntents.value = intent.toAppIntent()
         setContent {
-            MusicSMTheme {
+            val themeViewModel: AppThemeViewModel = hiltViewModel()
+            val themeSettings by themeViewModel.settings.collectAsStateWithLifecycle()
+            MusicSMTheme(settings = themeSettings) {
                 MusicSmRoot(
                     appIntents = appIntents,
                     onIntentHandled = { appIntents.value = null },

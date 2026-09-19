@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.example.musicsm.ui.theme.GlassFill
 import com.example.musicsm.ui.theme.GlassStroke
 import com.example.musicsm.ui.theme.GlassStrokeSoft
+import com.example.musicsm.ui.theme.LocalMusicSmPalette
+import com.example.musicsm.ui.theme.OverlayTint
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -61,20 +63,25 @@ fun GlassPanel(
     val hazeState = LocalHazeState.current
     // Cheaper than HazeMaterials: modest blur, no per-frame noise shader. Remembered so the
     // style isn't reallocated on every recomposition/scroll frame.
-    val style = remember {
+    val hazeTint = LocalMusicSmPalette.current.hazeTint
+    val style = remember(hazeTint) {
         HazeStyle(
             blurRadius = 20.dp,
-            tint = HazeTint(Color.White.copy(alpha = 0.10f)),
+            tint = HazeTint(hazeTint),
             noiseFactor = 0f,
         )
     }
-    val stroke = remember { Brush.verticalGradient(listOf(GlassStroke, GlassStrokeSoft)) }
+    val strokeTop = GlassStroke
+    val strokeBottom = GlassStrokeSoft
+    val stroke = remember(strokeTop, strokeBottom) {
+        Brush.verticalGradient(listOf(strokeTop, strokeBottom))
+    }
 
     val base = modifier.clip(shape)
     val frosted = if (hazeState != null) {
         base.hazeEffect(state = hazeState, style = style)
     } else {
-        base.background(Color.White.copy(alpha = 0.08f))
+        base.background(OverlayTint.copy(alpha = 0.08f))
     }
 
     Box(

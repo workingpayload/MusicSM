@@ -42,6 +42,10 @@ class MediaControllerManager @Inject constructor(
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    // The volume the user set. The crossfade/sleep-timer transiently write the player's actual
+    // volume; the UI slider tracks this instead so it doesn't jump around during transitions.
+    private var userVolume = 1f
+
     private var lastSavedSignature: String? = null
     private var lastSaveAtMs = 0L
 
@@ -60,6 +64,7 @@ class MediaControllerManager @Inject constructor(
         future.addListener({
             controller = runCatching { future.get() }.getOrNull()?.also {
                 it.addListener(listener)
+                userVolume = it.volume
                 restoreQueueIfNeeded(it)
             }
             pushState()
@@ -154,7 +159,9 @@ class MediaControllerManager @Inject constructor(
     }
 
     fun setVolume(volume: Float) {
-        controller?.volume = volume.coerceIn(0f, 1f)
+        val v = volume.coerceIn(0f, 1f)
+        userVolume = v
+        controller?.volume = v
         pushState()
     }
 
@@ -221,7 +228,8 @@ class MediaControllerManager @Inject constructor(
             repeatMode = c.repeatMode,
             hasNext = c.hasNextMediaItem(),
             hasPrevious = c.hasPreviousMediaItem(),
-            volume = c.volume,
+            // Report the user's volume, not the live player volume (which the crossfade ramps).
+            volume = userVolume,
         )
         persistQueue()
     }

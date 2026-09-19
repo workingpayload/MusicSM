@@ -61,6 +61,7 @@ import com.example.musicsm.ui.library.LibraryViewModel
 import com.example.musicsm.ui.player.DownloadViewModel
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.OnDarkVariant
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.util.shareSong
 
 /** An optional screen-specific row, e.g. "Remove from playlist" or "Remove from queue". */
@@ -131,7 +132,7 @@ fun SongOptionsSheet(
             ) {
                 SheetHeader(song)
                 HorizontalDivider(
-                    color = Color.White.copy(alpha = 0.08f),
+                    color = OverlayTint.copy(alpha = 0.08f),
                     modifier = Modifier.padding(vertical = 4.dp),
                 )
 
@@ -165,7 +166,7 @@ fun SongOptionsSheet(
                 }
 
                 HorizontalDivider(
-                    color = Color.White.copy(alpha = 0.08f),
+                    color = OverlayTint.copy(alpha = 0.08f),
                     modifier = Modifier.padding(vertical = 4.dp),
                 )
 
@@ -208,7 +209,7 @@ fun SongOptionsSheet(
 
                 if (extraAction != null) {
                     HorizontalDivider(
-                        color = Color.White.copy(alpha = 0.08f),
+                        color = OverlayTint.copy(alpha = 0.08f),
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
                     ActionRow(

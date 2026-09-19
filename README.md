@@ -1,6 +1,6 @@
 # MusicSM
 
-A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans).
+**v2.0.0** — A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans).
 
 > **Not shippable to Google Play.** MusicSM streams from YouTube and depends on GPLv3 `NewPipeExtractor`; it is a personal / educational project, not a distributable product.
 
@@ -8,14 +8,29 @@ A dark, glassmorphic music‑streaming app for Android. Real audio streamed from
 
 ## Features
 
-- **Home** — personalized shelves built from your liked songs (*Recommended for you*, *Because you liked …*), real **Trending now** from YouTube's `trending_music` kiosk, plus curated genre/mood shelves. Pull‑to‑refresh and shimmer skeleton loading.
-- **Search** — songs, albums, and artists with a debounced query and artwork‑tinted header.
-- **Album page** — cover art, metadata, Play / Shuffle, full tracklist with the current track highlighted; Add (saves as a playlist) and Favorite (likes every track).
-- **Artist page** — circular avatar, top songs, and albums shelf. Opens a detail page instead of playing immediately.
-- **Library** — liked songs and user‑created playlists, persisted locally.
-- **Now Playing** — blurred artwork backdrop, hue‑cycling frosted‑glass play/pause button, an animated multi‑hue seek bar, live synced lyrics, queue, and volume.
-- **Playback** — background playback via a Media3 foreground service; the media notification / lockscreen controls reopen the app.
-- **Smooth position** — frame‑interpolated playback position so the seek bar and lyric highlighting stay fluid and accurate between the player's coarse state ticks.
+**Browse & discover**
+- **Home** — taste‑based shelves from your history, likes, and followed artists (*Recommended for you*, *Because you liked …*, *From artists you follow*), real **Trending now**, plus curated genre/mood tiles. Pull‑to‑refresh, shimmer skeletons; offline fallback to downloads/recent/liked.
+- **Search** — songs, albums, artists; **Album** and **Artist** detail pages; follow artists.
+- **Listening Stats** — top tracks/artists over time.
+
+**Library, playlists & sharing**
+- Liked songs + local playlists (custom covers, delete).
+- **Import from a Spotify link** — paste a public playlist URL; tracks matched on YouTube and saved.
+- **Share** playlists via link / QR code, and **scan** a code to open one.
+
+**Offline**
+- **Automatic caching** — played tracks are cached to disk (LRU‑capped) and replay offline, Spotify‑style.
+- **Downloads** — explicit offline downloads with a background service + notification, a Downloads page, and album/playlist bulk download.
+
+**Playback**
+- Background playback via a Media3 **MediaLibraryService**; notification / lockscreen controls reopen the app.
+- **True overlapping crossfade**, **equalizer + audio effects** (bass boost, virtualizer, loudness, skip‑silence, speed), **sleep timer**, high‑bitrate audio.
+- Frame‑interpolated position so the seek bar and live synced lyrics stay smooth.
+
+**Beyond the phone**
+- **Android Auto** (browse + play), **Wear OS** transport, a **home‑screen widget**, a **Quick Settings tile**, deep links / "Open with" & "Share to MusicSM" for YouTube links, and voice "play … on MusicSM".
+
+**Now Playing** — blurred artwork backdrop, breathing album art, hue‑cycling frosted‑glass play/pause button, animated multi‑hue seek bar, glassy album‑tinted volume, queue, and live lyrics.
 
 ## Screenshots
 
@@ -37,23 +52,27 @@ A dark, glassmorphic music‑streaming app for Android. Real audio streamed from
 | UI | Jetpack Compose + Material 3, MVVM |
 | Build | Gradle 9.5, AGP 9.3.2 (built‑in Kotlin), KSP 2.3.11 |
 | DI | Hilt 2.60.1 |
-| Playback | AndroidX Media3 1.11.0 (ExoPlayer + MediaSessionService) |
-| Data | NewPipeExtractor v0.26.5 (YouTube) |
-| Storage | Room 2.8.4 |
+| Playback | AndroidX Media3 1.11.0 (ExoPlayer + MediaLibraryService, cache, effects) |
+| Data | NewPipeExtractor v0.26.5 (YouTube); Spotify public embed for playlist import |
+| Storage | Room 2.8.4 (v4 schema) |
 | Images | Coil 3 |
 | Glass blur | Haze |
+| Reach | Android Auto · Wear OS · App Widget · Quick Settings tile |
 
 ## Architecture
 
 Single `:app` module, layered so nothing above the data layer knows the source is YouTube.
 
 ```
-ui/            Compose screens + ViewModels (home, search, library, album, artist, player)
+ui/            Compose screens + ViewModels (home, search, library, album, artist,
+               player, importer, settings, stats, share, actions)
 navigation/    Routes, root scaffold, NavHost, bottom bar
-domain/        Pure Kotlin models + repository/source interfaces
-data/          Impls — only layer importing NewPipe / Room
-playback/      Media3 bridge (service, controller manager, stream resolver)
-di/            Hilt modules
+domain/        Pure Kotlin models + repository/source interfaces (+ recommend, match)
+data/          Impls — only layer importing NewPipe / Room / Spotify / prefs
+playback/      Media3 bridge (service, controller, resolver, crossfade, effects, sleep timer)
+download/      Foreground download service
+di/            Hilt modules (data, database, network, media cache)
+widget/ tile/ wear/   Home‑screen widget · Quick Settings tile · Wear OS bridge
 ```
 
 - `MusicSource` (interface) abstracts the catalog + audio; `NewPipeMusicSource` implements it against YouTube.

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Themed (monochrome) launcher layer for Android 13+. The system ignores these colours and tints
+  the whole layer, so every path is fully opaque - a translucent path would read as a lighter
+  patch rather than a highlight. Geometry matches ic_launcher_foreground, kept inside the 66dp
+  adaptive-icon safe zone.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Stem -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,32 h8 v40 h-8 z" />
+
+    <!-- Flag -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,31 c13,2.5 20,13 13,27 c1.5,-11.5 -4,-19.5 -13,-21.5 z" />
+
+    <!-- Note head (tilted ellipse) -->
+    <group
+        android:pivotX="53"
+        android:pivotY="73"
+        android:rotation="-20">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M39,73 a14,10.5 0 1 0 28,0 a14,10.5 0 1 0 -28,0 z" />
+    </group>
+
+    <!-- Floating beat dots (top-left). -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M33,44 m-4.5,0 a4.5,4.5 0 1 0 9,0 a4.5,4.5 0 1 0 -9,0 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M26,30 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0 z" />
+</vector>

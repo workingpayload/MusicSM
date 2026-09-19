@@ -1,5 +1,14 @@
 package com.example.musicsm.ui.player
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +40,7 @@ import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Nightlight
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
@@ -58,6 +68,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -77,6 +88,7 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.example.musicsm.R
 import com.example.musicsm.ui.actions.SongActionsViewModel
+import com.example.musicsm.ui.actions.SongExtraAction
 import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.components.LocalSongNavigator
 import com.example.musicsm.ui.library.AddToPlaylistSheet
@@ -102,6 +114,7 @@ fun NowPlayingScreen(
     onBack: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenLyrics: () -> Unit,
+    onEnterAmbient: () -> Unit,
     modifier: Modifier = Modifier,
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     downloadViewModel: DownloadViewModel = hiltViewModel(),
@@ -229,6 +242,22 @@ fun NowPlayingScreen(
 
         Spacer(Modifier.height(16.dp))
 
+        // Apple Music-style motion: art springs large while playing, shrinks when paused, with a
+        // subtle continuous "breathing" so it never feels static.
+        val playing = state.isPlaying
+        val artScale by animateFloatAsState(
+            targetValue = if (playing) 1f else 0.82f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+            label = "artScale",
+        )
+        val breatheTransition = rememberInfiniteTransition(label = "artBreathe")
+        val breath by breatheTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(2800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "breath",
+        )
+        val finalArtScale = artScale * (1f + if (playing) 0.012f * breath else 0f)
         ArtworkImage(
             url = song?.artworkUrl,
             shape = RoundedCornerShape(16.dp),
@@ -237,6 +266,10 @@ fun NowPlayingScreen(
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .padding(horizontal = 8.dp)
+                .graphicsLayer {
+                    scaleX = finalArtScale
+                    scaleY = finalArtScale
+                }
                 .shadow(
                     elevation = 24.dp,
                     shape = RoundedCornerShape(16.dp),
@@ -452,6 +485,14 @@ fun NowPlayingScreen(
             libraryViewModel = libraryViewModel,
             downloadViewModel = downloadViewModel,
             actionsViewModel = actionsViewModel,
+            extraAction = SongExtraAction(
+                label = stringResource(R.string.ambient_mode),
+                icon = Icons.Filled.Nightlight,
+                onAction = {
+                    showOptions = false
+                    onEnterAmbient()
+                },
+            ),
         )
     }
     if (showSheet && song != null) {

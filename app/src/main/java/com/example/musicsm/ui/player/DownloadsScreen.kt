@@ -60,7 +60,9 @@ import com.example.musicsm.ui.components.WavyProgressBar
 import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.OnDark
 import com.example.musicsm.ui.theme.OnDarkVariant
+import com.example.musicsm.ui.theme.OverlayTint
 
 @Composable
 fun DownloadsScreen(
@@ -82,17 +84,17 @@ fun DownloadsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)).clickable(onClick = onBack),
+                Modifier.size(44.dp).clip(CircleShape).background(OverlayTint.copy(alpha = 0.05f)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = stringResource(R.string.action_back), tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = stringResource(R.string.action_back), tint = OnDark, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(8.dp))
             Text(
                 stringResource(R.string.downloads_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = OnDark,
                 modifier = Modifier.weight(1f),
             )
             if (downloads.isNotEmpty()) {
@@ -131,7 +133,7 @@ fun DownloadsScreen(
                         FillingThumb(url = item.song.artworkUrl, progress = item.progress)
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(item.song.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                            Text(item.song.title, color = OnDark, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
                             Text(item.song.artist, color = OnDarkVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(6.dp))
                             WavyProgressBar(progress = item.progress, height = 10.dp)
@@ -161,11 +163,11 @@ fun DownloadsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(item.song.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                            Text(item.song.title, color = OnDark, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
                             Text(item.reason, color = Coral, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
                         IconButton(onClick = { downloadViewModel.retry(item.song.id) }) {
-                            Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.downloads_retry), tint = Color.White)
+                            Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.downloads_retry), tint = OnDark)
                         }
                         IconButton(onClick = { downloadViewModel.delete(item.song.id) }) {
                             Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_dismiss), tint = OnDarkVariant)

@@ -11,6 +11,7 @@ import com.example.musicsm.data.local.dao.HistoryDao
 import com.example.musicsm.data.local.dao.LikeDao
 import com.example.musicsm.data.local.dao.PlaylistDao
 import com.example.musicsm.data.local.dao.SongDao
+import com.example.musicsm.data.local.dao.StatsDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -119,11 +120,35 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * Adds the append-only `play_events` log that the listening-stats screen aggregates.
+     * `play_history` only ever holds one row per song (its primary key is `songId`), so play
+     * counts were impossible before this. Existing history is seeded in as one event per song
+     * so the first stats screen isn't completely empty.
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `play_events` (" +
+                    "`eventId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`songId` TEXT NOT NULL, `playedAt` INTEGER NOT NULL, " +
+                    "FOREIGN KEY(`songId`) REFERENCES `songs`(`songId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_play_events_songId` ON `play_events` (`songId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_play_events_playedAt` ON `play_events` (`playedAt`)")
+            db.execSQL(
+                "INSERT INTO play_events (songId, playedAt) " +
+                    "SELECT songId, playedAt FROM play_history " +
+                    "WHERE songId IN (SELECT songId FROM songs)",
+            )
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): MusicDatabase =
         Room.databaseBuilder(context, MusicDatabase::class.java, "musicsm.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .build()
 
     @Provides
@@ -140,6 +165,9 @@ object DatabaseModule {
 
     @Provides
     fun provideHistoryDao(db: MusicDatabase): HistoryDao = db.historyDao()
+
+    @Provides
+    fun provideStatsDao(db: MusicDatabase): StatsDao = db.statsDao()
 
     @Provides
     fun provideDownloadDao(db: MusicDatabase): DownloadDao = db.downloadDao()

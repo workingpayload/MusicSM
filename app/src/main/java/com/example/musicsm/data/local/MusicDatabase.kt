@@ -8,9 +8,11 @@ import com.example.musicsm.data.local.dao.HistoryDao
 import com.example.musicsm.data.local.dao.LikeDao
 import com.example.musicsm.data.local.dao.PlaylistDao
 import com.example.musicsm.data.local.dao.SongDao
+import com.example.musicsm.data.local.dao.StatsDao
 import com.example.musicsm.data.local.entity.DownloadEntity
 import com.example.musicsm.data.local.entity.LikedArtistEntity
 import com.example.musicsm.data.local.entity.LikedSongEntity
+import com.example.musicsm.data.local.entity.PlayEventEntity
 import com.example.musicsm.data.local.entity.PlayHistoryEntity
 import com.example.musicsm.data.local.entity.PlaylistEntity
 import com.example.musicsm.data.local.entity.PlaylistSongCrossRef
@@ -24,9 +26,10 @@ import com.example.musicsm.data.local.entity.SongEntity
         LikedSongEntity::class,
         LikedArtistEntity::class,
         PlayHistoryEntity::class,
+        PlayEventEntity::class,
         DownloadEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -35,5 +38,6 @@ abstract class MusicDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun artistDao(): ArtistDao
     abstract fun historyDao(): HistoryDao
+    abstract fun statsDao(): StatsDao
     abstract fun downloadDao(): DownloadDao
 }

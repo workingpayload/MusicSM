@@ -67,7 +67,9 @@ import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.CoralLight
 import com.example.musicsm.ui.theme.Lavender
+import com.example.musicsm.ui.theme.OnAccent
 import com.example.musicsm.ui.theme.OnDarkVariant
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.SurfaceHigh
 import com.example.musicsm.ui.theme.SurfaceHighest
 import com.example.musicsm.ui.theme.Teal
@@ -93,11 +95,14 @@ fun AlbumDetailScreen(
     )
 
     // Ambient aurora backdrop (coral + lavender blooms), same as Home.
+    // Palette tokens are composable reads, so they are hoisted out of the draw lambda.
+    val backdrop = AppBackground
+    val bloom = Lavender
     Box(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(AppBackground)
+                drawRect(backdrop)
                 drawRect(
                     Brush.radialGradient(
                         colors = listOf(accent.value.copy(alpha = 0.22f), Color.Transparent),
@@ -107,7 +112,7 @@ fun AlbumDetailScreen(
                 )
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(Lavender.copy(alpha = 0.16f), Color.Transparent),
+                        colors = listOf(bloom.copy(alpha = 0.16f), Color.Transparent),
                         center = Offset(size.width * 0.95f, size.height * 0.25f),
                         radius = size.width * 0.7f,
                     ),
@@ -199,7 +204,7 @@ private fun TopBar(onBack: () -> Unit) {
             Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.05f))
+                .background(OverlayTint.copy(alpha = 0.05f))
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
@@ -298,9 +303,9 @@ private fun ActionCluster(
             PillButton(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.PlayArrow,
-                iconTint = Color.White,
+                iconTint = OnAccent,
                 label = stringResource(R.string.action_play),
-                labelColor = Color.White,
+                labelColor = OnAccent,
                 background = Coral,
                 enabled = ui.songs.isNotEmpty(),
                 onClick = { playerViewModel.play(ui.songs, 0) },

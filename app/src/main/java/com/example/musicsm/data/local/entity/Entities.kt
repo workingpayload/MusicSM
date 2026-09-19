@@ -93,6 +93,28 @@ data class PlayHistoryEntity(
     val playedAt: Long,
 )
 
+/**
+ * One row per play, unlike [PlayHistoryEntity] which keeps a single "most recent" row per song.
+ * This is the append-only log the listening-stats screen aggregates over, so it is never trimmed.
+ */
+@Entity(
+    tableName = "play_events",
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["songId"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("songId"), Index("playedAt")],
+)
+data class PlayEventEntity(
+    @PrimaryKey(autoGenerate = true) val eventId: Long = 0,
+    val songId: String,
+    val playedAt: Long,
+)
+
 @Entity(
     tableName = "downloads",
     foreignKeys = [

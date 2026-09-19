@@ -1,11 +1,15 @@
 package com.example.musicsm.ui.components
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.example.musicsm.ui.theme.AppBackground
 import kotlin.math.abs
 
 /** Vertical gradient from an accent color down into the app background, for screen headers. */
+@Composable
+@ReadOnlyComposable
 fun gradientBrush(accent: Color): Brush = Brush.verticalGradient(
     0.0f to accent.copy(alpha = 0.85f),
     0.5f to accent.copy(alpha = 0.35f),

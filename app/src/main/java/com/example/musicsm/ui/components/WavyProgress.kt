@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.Teal
 import kotlin.math.PI
 import kotlin.math.sin
@@ -55,10 +56,12 @@ fun WavyProgressBar(
         label = "wavyHue",
     )
     val hueColors = listOf(Coral, Lavender, Teal, Lavender, Coral)
+    // Palette tokens are composable reads, so hoist before the Canvas draw lambda.
+    val trackTint = OverlayTint
 
     Canvas(modifier.fillMaxWidth().height(height).clip(CircleShape)) {
         // Track.
-        drawRect(Color.White.copy(alpha = 0.08f))
+        drawRect(trackTint.copy(alpha = 0.08f))
 
         val end = size.width * fill
         if (end <= 0f) return@Canvas

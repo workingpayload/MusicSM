@@ -36,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.musicsm.R
 import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.OnAccent
 import com.example.musicsm.ui.theme.OnDarkVariant
+import com.example.musicsm.ui.theme.OverlayTint
 import kotlin.random.Random
 
 /**
@@ -136,6 +138,10 @@ fun DinoGame(modifier: Modifier = Modifier) {
             }
         }
 
+        // Palette tokens are composable reads, so hoist them before the Canvas draw lambda.
+        val ink = OverlayTint
+        val dinoBody = Coral
+        val eye = OnAccent
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -145,13 +151,13 @@ fun DinoGame(modifier: Modifier = Modifier) {
                 ) { tap() },
         ) {
             // Clouds (background).
-            clouds.forEach { drawCloud(it) }
+            clouds.forEach { drawCloud(it, ink) }
             // Ground.
-            drawGround(groundY, groundScroll)
+            drawGround(groundY, groundScroll, ink)
             // Cacti.
             obstacles.forEach { drawCactus(it, groundY, cactusW, cactusH) }
             // Dino.
-            drawDino(dinoX, groundY - jump, dinoW, dinoH, legPhase, grounded = jump <= 0.5f)
+            drawDino(dinoX, groundY - jump, dinoW, dinoH, legPhase, grounded = jump <= 0.5f, body = dinoBody, eye = eye)
         }
 
         Text(
@@ -184,18 +190,18 @@ fun DinoGame(modifier: Modifier = Modifier) {
 
 // --- drawing ---------------------------------------------------------------
 
-private fun DrawScope.drawCloud(pos: Offset) {
-    val c = Color.White.copy(alpha = 0.10f)
+private fun DrawScope.drawCloud(pos: Offset, ink: Color) {
+    val c = ink.copy(alpha = 0.10f)
     drawRoundRect(c, topLeft = pos, size = Size(46f, 16f), cornerRadius = CornerRadius(8f, 8f))
     drawRoundRect(c, topLeft = Offset(pos.x + 10f, pos.y - 8f), size = Size(26f, 16f), cornerRadius = CornerRadius(8f, 8f))
 }
 
-private fun DrawScope.drawGround(groundY: Float, scroll: Float) {
-    drawLine(Color.White.copy(alpha = 0.28f), Offset(0f, groundY), Offset(size.width, groundY), strokeWidth = 2f)
+private fun DrawScope.drawGround(groundY: Float, scroll: Float, ink: Color) {
+    drawLine(ink.copy(alpha = 0.28f), Offset(0f, groundY), Offset(size.width, groundY), strokeWidth = 2f)
     // Scrolling dashes below the line for a sense of speed.
     var x = -scroll
     while (x < size.width) {
-        drawLine(Color.White.copy(alpha = 0.16f), Offset(x, groundY + 8f), Offset(x + 10f, groundY + 8f), strokeWidth = 2f)
+        drawLine(ink.copy(alpha = 0.16f), Offset(x, groundY + 8f), Offset(x + 10f, groundY + 8f), strokeWidth = 2f)
         x += 28f
     }
 }
@@ -213,8 +219,16 @@ private fun DrawScope.drawCactus(x: Float, groundY: Float, w: Float, h: Float) {
     drawRoundRect(green, topLeft = Offset(x + w / 2 + 2f, top + h * 0.25f), size = Size(w / 2 - 4f, 4f), cornerRadius = CornerRadius(2f, 2f))
 }
 
-private fun DrawScope.drawDino(x: Float, bottomY: Float, w: Float, h: Float, legPhase: Float, grounded: Boolean) {
-    val body = Coral
+private fun DrawScope.drawDino(
+    x: Float,
+    bottomY: Float,
+    w: Float,
+    h: Float,
+    legPhase: Float,
+    grounded: Boolean,
+    body: Color,
+    eye: Color,
+) {
     fun r(dx: Float, dy: Float, rw: Float, rh: Float, color: Color = body) =
         drawRoundRect(color, topLeft = Offset(x + dx, bottomY - dy), size = Size(rw, rh), cornerRadius = CornerRadius(3f, 3f))
 
@@ -224,7 +238,7 @@ private fun DrawScope.drawDino(x: Float, bottomY: Float, w: Float, h: Float, leg
     r(16f, 34f, 15f, 15f)
     r(28f, 26f, 6f, 7f)
     // eye
-    drawRoundRect(Color.White, topLeft = Offset(x + 25f, bottomY - 30f), size = Size(3f, 3f), cornerRadius = CornerRadius(2f, 2f))
+    drawRoundRect(eye, topLeft = Offset(x + 25f, bottomY - 30f), size = Size(3f, 3f), cornerRadius = CornerRadius(2f, 2f))
     // legs — alternate while running on the ground, together while airborne
     val step = ((legPhase).toInt() % 2 == 0)
     if (grounded) {

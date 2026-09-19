@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.example.musicsm.R
 import com.example.musicsm.domain.model.SongSort
 import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.OnDark
 
 /** Localised menu label for each [SongSort], kept in the UI layer so the domain stays Android-free. */
 @get:StringRes
@@ -42,7 +43,7 @@ fun SortMenuButton(
     current: SongSort,
     onSelect: (SongSort) -> Unit,
     modifier: Modifier = Modifier,
-    tint: Color = Color.White,
+    tint: Color = OnDark,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {

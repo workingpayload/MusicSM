@@ -85,7 +85,11 @@ fun PlayPauseButton(
     val scale by animateFloatAsState(if (pressed) 0.9f else 1f, label = "pressScale")
 
     val hazeState = LocalHazeState.current
-    val stroke = remember { Brush.verticalGradient(listOf(GlassStroke, GlassStrokeSoft)) }
+    val strokeTop = GlassStroke
+    val strokeBottom = GlassStrokeSoft
+    val stroke = remember(strokeTop, strokeBottom) {
+        Brush.verticalGradient(listOf(strokeTop, strokeBottom))
+    }
 
     Box(contentAlignment = Alignment.Center, modifier = modifier.size(size)) {
         // Breathing hue glow halo, kept within the button footprint.

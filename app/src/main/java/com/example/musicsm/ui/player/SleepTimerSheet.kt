@@ -33,7 +33,10 @@ import androidx.compose.ui.unit.dp
 import com.example.musicsm.R
 import com.example.musicsm.playback.SleepTimerState
 import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.OnAccent
+import com.example.musicsm.ui.theme.OnDark
 import com.example.musicsm.ui.theme.OnDarkVariant
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.SurfaceLow
 
 /** Remaining sleep-timer time as "M:SS", or "12 min" style for longer waits. */
@@ -77,7 +80,7 @@ fun SleepTimerSheet(
                         stringResource(R.string.sleep_timer_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = OnDark,
                     )
                     Text(
                         if (state.isActive) {
@@ -133,10 +136,10 @@ private fun TimerChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Text(
         label,
         style = MaterialTheme.typography.labelLarge,
-        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+        color = if (selected) OnAccent else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(if (selected) Coral else Color.White.copy(alpha = 0.08f))
+            .background(if (selected) Coral else OverlayTint.copy(alpha = 0.08f))
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 12.dp),
     )

@@ -79,6 +79,97 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
     val sleepTimerFadeOutNow: Boolean get() = prefs.getBoolean(KEY_SLEEP_FADE, true)
     fun setSleepTimerFadeOut(value: Boolean) = prefs.edit().putBoolean(KEY_SLEEP_FADE, value).apply()
 
+    /** Playback speed multiplier, 0.5x - 2.0x. */
+    val playbackSpeed: Flow<Float> get() = watch(KEY_SPEED) { playbackSpeedNow }
+    val playbackSpeedNow: Float get() = prefs.getFloat(KEY_SPEED, 1f).coerceIn(MIN_SPEED, MAX_SPEED)
+    fun setPlaybackSpeed(value: Float) =
+        prefs.edit().putFloat(KEY_SPEED, value.coerceIn(MIN_SPEED, MAX_SPEED)).apply()
+
+    /** Length of the volume fade applied at track boundaries, in ms. 0 disables fading. */
+    val crossfadeMs: Flow<Int> get() = watch(KEY_CROSSFADE) { crossfadeMsNow }
+    val crossfadeMsNow: Int get() = prefs.getInt(KEY_CROSSFADE, 0).coerceIn(0, MAX_CROSSFADE_MS)
+    fun setCrossfadeMs(value: Int) =
+        prefs.edit().putInt(KEY_CROSSFADE, value.coerceIn(0, MAX_CROSSFADE_MS)).apply()
+
+    // --- appearance --------------------------------------------------------
+
+    /** One of [com.example.musicsm.ui.theme.ThemeMode]'s names; defaults to the dark palette. */
+    val themeMode: Flow<String> get() = watch(KEY_THEME_MODE) { themeModeNow }
+    val themeModeNow: String get() = prefs.getString(KEY_THEME_MODE, DEFAULT_THEME_MODE) ?: DEFAULT_THEME_MODE
+    fun setThemeMode(value: String) = prefs.edit().putString(KEY_THEME_MODE, value).apply()
+
+    val amoled: Flow<Boolean> get() = watch(KEY_AMOLED) { amoledNow }
+    val amoledNow: Boolean get() = prefs.getBoolean(KEY_AMOLED, false)
+    fun setAmoled(value: Boolean) = prefs.edit().putBoolean(KEY_AMOLED, value).apply()
+
+    val materialYou: Flow<Boolean> get() = watch(KEY_MATERIAL_YOU) { materialYouNow }
+    val materialYouNow: Boolean get() = prefs.getBoolean(KEY_MATERIAL_YOU, false)
+    fun setMaterialYou(value: Boolean) = prefs.edit().putBoolean(KEY_MATERIAL_YOU, value).apply()
+
+    /** Packed ARGB accent override, or [NO_ACCENT] to keep the palette's own accent. */
+    val accentColor: Flow<Int> get() = watch(KEY_ACCENT) { accentColorNow }
+    val accentColorNow: Int get() = prefs.getInt(KEY_ACCENT, NO_ACCENT)
+    fun setAccentColor(argb: Int) = prefs.edit().putInt(KEY_ACCENT, argb).apply()
+
+    /** Re-tint the whole app from the current track's artwork. */
+    val themeFromArtwork: Flow<Boolean> get() = watch(KEY_ARTWORK_THEME) { themeFromArtworkNow }
+    val themeFromArtworkNow: Boolean get() = prefs.getBoolean(KEY_ARTWORK_THEME, false)
+    fun setThemeFromArtwork(value: Boolean) = prefs.edit().putBoolean(KEY_ARTWORK_THEME, value).apply()
+
+    // --- audio effects -----------------------------------------------------
+
+    val effectsEnabled: Flow<Boolean> get() = watch(KEY_FX_ENABLED) { effectsEnabledNow }
+    val effectsEnabledNow: Boolean get() = prefs.getBoolean(KEY_FX_ENABLED, false)
+    fun setEffectsEnabled(value: Boolean) = prefs.edit().putBoolean(KEY_FX_ENABLED, value).apply()
+
+    /** Index into the device equalizer's built-in presets, or [CUSTOM_PRESET] for manual bands. */
+    val equalizerPreset: Flow<Int> get() = watch(KEY_FX_PRESET) { equalizerPresetNow }
+    val equalizerPresetNow: Int get() = prefs.getInt(KEY_FX_PRESET, CUSTOM_PRESET)
+    fun setEqualizerPreset(value: Int) = prefs.edit().putInt(KEY_FX_PRESET, value).apply()
+
+    /** Per-band gains in millibels, one entry per band the device reports. */
+    val equalizerBands: Flow<List<Int>> get() = watch(KEY_FX_BANDS) { equalizerBandsNow }
+    val equalizerBandsNow: List<Int>
+        get() = prefs.getString(KEY_FX_BANDS, null)
+            ?.split(",")
+            ?.mapNotNull { it.trim().toIntOrNull() }
+            .orEmpty()
+
+    fun setEqualizerBands(levels: List<Int>) {
+        prefs.edit()
+            .putString(KEY_FX_BANDS, levels.joinToString(","))
+            .putInt(KEY_FX_PRESET, CUSTOM_PRESET)
+            .apply()
+    }
+
+    /** Bass boost strength, 0-1000 as defined by [android.media.audiofx.BassBoost]. */
+    val bassBoost: Flow<Int> get() = watch(KEY_FX_BASS) { bassBoostNow }
+    val bassBoostNow: Int get() = prefs.getInt(KEY_FX_BASS, 0).coerceIn(0, 1000)
+    fun setBassBoost(value: Int) = prefs.edit().putInt(KEY_FX_BASS, value.coerceIn(0, 1000)).apply()
+
+    /** Virtualizer (stereo widening) strength, 0-1000. */
+    val virtualizer: Flow<Int> get() = watch(KEY_FX_VIRTUALIZER) { virtualizerNow }
+    val virtualizerNow: Int get() = prefs.getInt(KEY_FX_VIRTUALIZER, 0).coerceIn(0, 1000)
+    fun setVirtualizer(value: Int) =
+        prefs.edit().putInt(KEY_FX_VIRTUALIZER, value.coerceIn(0, 1000)).apply()
+
+    /** Extra gain in millibels applied by LoudnessEnhancer; levels up quiet tracks. */
+    val loudnessGainMb: Flow<Int> get() = watch(KEY_FX_LOUDNESS) { loudnessGainMbNow }
+    val loudnessGainMbNow: Int get() = prefs.getInt(KEY_FX_LOUDNESS, 0).coerceIn(0, MAX_LOUDNESS_MB)
+    fun setLoudnessGainMb(value: Int) =
+        prefs.edit().putInt(KEY_FX_LOUDNESS, value.coerceIn(0, MAX_LOUDNESS_MB)).apply()
+
+    /** Resets the equalizer, bass boost, virtualizer and loudness to their defaults. */
+    fun resetAudioEffects() {
+        prefs.edit()
+            .remove(KEY_FX_PRESET)
+            .remove(KEY_FX_BANDS)
+            .remove(KEY_FX_BASS)
+            .remove(KEY_FX_VIRTUALIZER)
+            .remove(KEY_FX_LOUDNESS)
+            .apply()
+    }
+
     // --- download settings -------------------------------------------------
 
     val wifiOnlyDownloads: Flow<Boolean> get() = watch(KEY_WIFI_ONLY) { wifiOnlyDownloadsNow }
@@ -245,24 +336,48 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
         )
     }
 
-    private companion object {
-        const val SEPARATOR = "\u001F"
-        const val MAX_RECENT_SEARCHES = 12
+    companion object {
+        /** [accentColor] value meaning "keep the palette's own accent". */
+        const val NO_ACCENT = 0
+        const val DEFAULT_THEME_MODE = "DARK"
 
-        const val KEY_RESTORE_QUEUE = "restore_queue"
-        const val KEY_SKIP_SILENCE = "skip_silence"
-        const val KEY_AUTOPLAY = "autoplay_radio"
-        const val KEY_SLEEP_FADE = "sleep_timer_fade"
-        const val KEY_WIFI_ONLY = "wifi_only_downloads"
-        const val KEY_SORT_PLAYLIST = "sort_playlist"
-        const val KEY_SORT_DOWNLOADS = "sort_downloads"
-        const val KEY_RECENT_SEARCHES = "recent_searches"
-        const val KEY_SLEEP_ENDS_AT = "sleep_timer_ends_at"
-        const val KEY_SLEEP_END_OF_TRACK = "sleep_timer_end_of_track"
-        const val KEY_QUEUE = "queue_songs"
-        const val KEY_QUEUE_INDEX = "queue_index"
-        const val KEY_QUEUE_POSITION = "queue_position"
-        const val KEY_NOW_PLAYING = "now_playing"
-        const val KEY_NOW_PLAYING_IS_PLAYING = "now_playing_is_playing"
+        /** [equalizerPreset] value meaning "use the per-band levels instead of a device preset". */
+        const val CUSTOM_PRESET = -1
+        const val MIN_SPEED = 0.5f
+        const val MAX_SPEED = 2.0f
+        const val MAX_CROSSFADE_MS = 12_000
+        const val MAX_LOUDNESS_MB = 2_000
+
+        private const val SEPARATOR = "\u001F"
+        private const val MAX_RECENT_SEARCHES = 12
+
+        private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_AMOLED = "theme_amoled"
+        private const val KEY_MATERIAL_YOU = "theme_material_you"
+        private const val KEY_ACCENT = "theme_accent"
+        private const val KEY_ARTWORK_THEME = "theme_from_artwork"
+        private const val KEY_RESTORE_QUEUE = "restore_queue"
+        private const val KEY_SKIP_SILENCE = "skip_silence"
+        private const val KEY_AUTOPLAY = "autoplay_radio"
+        private const val KEY_SLEEP_FADE = "sleep_timer_fade"
+        private const val KEY_SPEED = "playback_speed"
+        private const val KEY_CROSSFADE = "crossfade_ms"
+        private const val KEY_FX_ENABLED = "fx_enabled"
+        private const val KEY_FX_PRESET = "fx_preset"
+        private const val KEY_FX_BANDS = "fx_bands"
+        private const val KEY_FX_BASS = "fx_bass_boost"
+        private const val KEY_FX_VIRTUALIZER = "fx_virtualizer"
+        private const val KEY_FX_LOUDNESS = "fx_loudness_mb"
+        private const val KEY_WIFI_ONLY = "wifi_only_downloads"
+        private const val KEY_SORT_PLAYLIST = "sort_playlist"
+        private const val KEY_SORT_DOWNLOADS = "sort_downloads"
+        private const val KEY_RECENT_SEARCHES = "recent_searches"
+        private const val KEY_SLEEP_ENDS_AT = "sleep_timer_ends_at"
+        private const val KEY_SLEEP_END_OF_TRACK = "sleep_timer_end_of_track"
+        private const val KEY_QUEUE = "queue_songs"
+        private const val KEY_QUEUE_INDEX = "queue_index"
+        private const val KEY_QUEUE_POSITION = "queue_position"
+        private const val KEY_NOW_PLAYING = "now_playing"
+        private const val KEY_NOW_PLAYING_IS_PLAYING = "now_playing_is_playing"
     }
 }

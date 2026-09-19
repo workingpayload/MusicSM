@@ -5,8 +5,10 @@ import com.example.musicsm.data.local.dao.HistoryDao
 import com.example.musicsm.data.local.dao.LikeDao
 import com.example.musicsm.data.local.dao.PlaylistDao
 import com.example.musicsm.data.local.dao.SongDao
+import com.example.musicsm.data.local.dao.StatsDao
 import com.example.musicsm.data.local.entity.LikedArtistEntity
 import com.example.musicsm.data.local.entity.LikedSongEntity
+import com.example.musicsm.data.local.entity.PlayEventEntity
 import com.example.musicsm.data.local.entity.PlayHistoryEntity
 import com.example.musicsm.data.local.entity.PlaylistSongCrossRef
 import com.example.musicsm.data.local.entity.toEntity
@@ -28,6 +30,7 @@ class LibraryRepositoryImpl @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val artistDao: ArtistDao,
     private val historyDao: HistoryDao,
+    private val statsDao: StatsDao,
 ) : LibraryRepository {
 
     companion object {
@@ -77,6 +80,9 @@ class LibraryRepositoryImpl @Inject constructor(
         songDao.upsert(song.toEntity())
         historyDao.insert(PlayHistoryEntity(song.id, System.currentTimeMillis()))
         historyDao.trim(HISTORY_LIMIT)
+        // Separate append-only log: `play_history` is keyed by songId and trimmed, so it can
+        // never answer "how many times". Listening stats read this instead.
+        statsDao.record(PlayEventEntity(songId = song.id, playedAt = System.currentTimeMillis()))
     }
 
     override suspend fun createPlaylist(name: String): Long =

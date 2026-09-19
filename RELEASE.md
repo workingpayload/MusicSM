@@ -1,5 +1,40 @@
 # Release notes
 
+## v2.0.0 — 2026-09-20
+
+A major release: offline, sharing, room-filling playback, and reach beyond the phone.
+
+### Playlists & sharing
+- **Import from a Spotify link** — paste a public playlist URL; every track is matched on YouTube and saved as a local playlist (progress + "matched N/N").
+- **Share playlists** — share a playlist as a link / QR code, and **scan a code** to open a shared playlist.
+- Custom playlist covers, delete playlists.
+
+### Offline
+- **Spotify-style caching** — tracks you play are cached to disk (LRU, capped) and replay offline automatically, no action needed.
+- **Downloads** — explicit offline downloads with a **background download service** + progress notification; a Downloads page with a live wavy progress bar; download whole albums/playlists.
+- Offline-aware launch: no internet → opens to your library; Home falls back to downloads/recent/liked.
+
+### Playback
+- **True overlapping crossfade** — two tracks blend via a second player (not just a fade); tunable duration; gapless when off.
+- **Equalizer & audio effects** — multi-band EQ, bass boost, virtualizer, loudness, skip-silence, playback speed.
+- **Sleep timer**, high-bitrate audio, and a look-ahead buffer for seamless transitions.
+
+### Discovery
+- Taste-based **recommendation shelves** built from history, likes, and followed artists; real trending.
+- **Follow artists**, play history (recently played), and a **Listening Stats** screen.
+
+### Beyond the phone
+- **Android Auto** (browse + play), **Wear OS** transport, a **home-screen widget**, and a **Quick Settings tile**.
+- Deep links & "Open with / Share to MusicSM" for YouTube links; voice "play … on MusicSM".
+
+### UI
+- Animated Now Playing: breathing album art, flowing multi-hue seek bar, frosted hue play/pause button, glassy album-tinted volume, smooth live-lyrics transitions.
+- Genre tiles with representative art; shimmer skeletons; slide navigation.
+
+### Notes
+- Database migrated through v4 (playlists cover, liked artists, play history, downloads); existing library preserved.
+- Still not Play-shippable — GPLv3 NewPipeExtractor + YouTube ToS; personal/educational use.
+
 ## v1.5.0 — 2026-09-15
 
 ### New

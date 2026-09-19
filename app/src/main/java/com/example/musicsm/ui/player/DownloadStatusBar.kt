@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicsm.R
 import com.example.musicsm.ui.components.WavyProgressBar
 import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.OnDark
 import com.example.musicsm.ui.theme.OnDarkVariant
 import com.example.musicsm.ui.theme.Teal
 import kotlinx.coroutines.delay
@@ -90,7 +91,7 @@ fun DownloadStatusBar(
                     Spacer(Modifier.size(8.dp))
                     Text(
                         pluralStringResource(R.plurals.downloads_in_progress_count, progress.size, progress.size),
-                        color = Color.White,
+                        color = OnDark,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -99,7 +100,7 @@ fun DownloadStatusBar(
                 } else {
                     Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Teal, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.downloads_complete), color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.downloads_complete), color = OnDark, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 }
             }
             if (active) {

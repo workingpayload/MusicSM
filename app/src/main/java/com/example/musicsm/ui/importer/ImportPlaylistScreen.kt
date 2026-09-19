@@ -46,6 +46,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicsm.R
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.OnAccent
+import com.example.musicsm.ui.theme.OnDark
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.OnDarkVariant
 
 @Composable
@@ -61,13 +64,13 @@ fun ImportPlaylistScreen(
     Column(modifier = modifier.fillMaxSize().background(AppBackground).statusBarsPadding()) {
         Row64 {
             Box(
-                Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)).clickable(onClick = onBack),
+                Modifier.size(44.dp).clip(CircleShape).background(OverlayTint.copy(alpha = 0.05f)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = stringResource(R.string.action_back), tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = stringResource(R.string.action_back), tint = OnDark, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.import_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(stringResource(R.string.import_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = OnDark)
         }
 
         when (val s = state) {
@@ -85,8 +88,8 @@ fun ImportPlaylistScreen(
                     placeholder = { Text(stringResource(R.string.import_link_hint)) },
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White.copy(alpha = 0.06f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.06f),
+                        focusedContainerColor = OverlayTint.copy(alpha = 0.06f),
+                        unfocusedContainerColor = OverlayTint.copy(alpha = 0.06f),
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
                     ),
@@ -103,7 +106,7 @@ fun ImportPlaylistScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     WaveBars(bars = 5, maxHeight = 28.dp)
                     Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.import_in_progress), color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.import_in_progress), color = OnDark, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.weight(1f))
                     val pct = if (s.total > 0) (s.done * 100 / s.total) else 0
                     Text("$pct%", color = OnDarkVariant, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
@@ -120,14 +123,14 @@ fun ImportPlaylistScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(28.dp))
-                Text(stringResource(R.string.import_while_you_wait), color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.import_while_you_wait), color = OnDark, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(10.dp))
                 DinoGame()
             }
 
             is ImportUiState.Done -> Centered {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                    Text("Imported \"${s.name}\"", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    Text("Imported \"${s.name}\"", color = OnDark, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(6.dp))
                     Text("${s.matched} of ${s.total} tracks matched", color = OnDarkVariant, style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(20.dp))
@@ -199,6 +202,6 @@ private fun PillButton(label: String, enabled: Boolean, onClick: () -> Unit) {
             .padding(horizontal = 24.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
+        Text(label, color = OnAccent, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
     }
 }

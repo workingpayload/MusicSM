@@ -23,6 +23,8 @@ object MediaItemMapper {
         return MediaItem.Builder()
             .setMediaId(song.id)
             .setUri("$SCHEME:${song.id}")
+            // Stable cache key so the media cache keys by videoId, not the volatile resolved URL.
+            .setCustomCacheKey(song.id)
             .setMediaMetadata(metadata)
             .build()
     }

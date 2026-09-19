@@ -4,11 +4,17 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaLibraryService
@@ -24,8 +30,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -42,11 +50,15 @@ class PlaybackService : MediaLibraryService() {
 
     @Inject lateinit var repository: MusicRepository
     @Inject lateinit var downloadRepository: DownloadRepository
+    @Inject lateinit var mediaCache: SimpleCache
     @Inject lateinit var libraryRepository: LibraryRepository
     @Inject lateinit var preferences: AppPreferences
     @Inject lateinit var nowPlayingPublisher: NowPlayingPublisher
+    @Inject lateinit var audioEffects: AudioEffectsManager
 
     private var mediaSession: MediaLibrarySession? = null
+    private var crossfadeController: CrossfadeController? = null
+    private var audioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     /** Keeps the home-screen widget and Quick Settings tile in sync with the player. */
@@ -67,6 +79,18 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /** Warms the next track's stream URL ahead of the transition so there's no network wait. */
+    private val preloadListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val player = mediaSession?.player ?: return
+            if (!player.hasNextMediaItem()) return
+            val idx = player.nextMediaItemIndex
+            if (idx == C.INDEX_UNSET || idx >= player.mediaItemCount) return
+            val nextId = player.getMediaItemAt(idx).mediaId
+            serviceScope.launch(Dispatchers.IO) { runCatching { repository.resolveStream(nextId) } }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -82,12 +106,41 @@ class PlaybackService : MediaLibraryService() {
             StreamUrlResolver(repository, downloadRepository),
         )
 
+        // Read-through disk cache: streamed bytes are cached (keyed by videoId via the MediaItem's
+        // customCacheKey), so replays — including offline — serve from disk without re-resolving.
+        val cacheDataSourceFactory = CacheDataSource.Factory()
+            .setCache(mediaCache)
+            .setUpstreamDataSourceFactory(resolvingFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(cacheDataSourceFactory)
+
+        // Buffer well ahead so ExoPlayer preloads the next track while the current one plays,
+        // eliminating the buffering gap (and dead air during a crossfade) at transitions.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 50_000,
+                /* maxBufferMs = */ 120_000,
+                /* bufferForPlaybackMs = */ 1_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 3_000,
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resolvingFactory))
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
             .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+
+        // Pin the audio session up front so the equalizer exists (and the settings screen can
+        // read the device's band layout) before the first track is ever loaded.
+        audioSessionId = Util.generateAudioSessionIdV21(this)
+        player.audioSessionId = audioSessionId
+        audioEffects.attach(audioSessionId)
+        audioEffects.notifySessionOpen(audioSessionId)
 
         // Tapping the media notification / lockscreen controls reopens the app (Now Playing).
         val sessionActivity = PendingIntent.getActivity(
@@ -113,10 +166,35 @@ class PlaybackService : MediaLibraryService() {
             .build()
 
         player.addListener(widgetListener)
+        player.addListener(preloadListener)
+        crossfadeController = CrossfadeController(this, player, mediaSourceFactory, serviceScope)
 
         // "Skip silence" is a user setting; apply it live whenever it changes.
         preferences.skipSilence
             .onEach { player.skipSilenceEnabled = it }
+            .launchIn(serviceScope)
+
+        preferences.playbackSpeed
+            .onEach { player.playbackParameters = PlaybackParameters(it) }
+            .launchIn(serviceScope)
+
+        preferences.crossfadeMs
+            .onEach { crossfadeController?.crossfadeMs = it }
+            .launchIn(serviceScope)
+
+        // Any equalizer/bass/virtualizer/loudness change re-applies to the live session.
+        combine(
+            preferences.effectsEnabled,
+            preferences.equalizerPreset,
+            preferences.equalizerBands,
+            preferences.bassBoost,
+            preferences.virtualizer,
+        ) { _, _, _, _, _ -> Unit }
+            .onEach { audioEffects.apply() }
+            .launchIn(serviceScope)
+
+        preferences.loudnessGainMb
+            .onEach { audioEffects.apply() }
             .launchIn(serviceScope)
     }
 
@@ -133,11 +211,19 @@ class PlaybackService : MediaLibraryService() {
         serviceScope.cancel()
         // Leave the widget/tile showing the last track, but without live transport controls.
         nowPlayingPublisher.publish(null, false)
+        if (audioSessionId != C.AUDIO_SESSION_ID_UNSET) {
+            audioEffects.notifySessionClosed(audioSessionId)
+            audioSessionId = C.AUDIO_SESSION_ID_UNSET
+        }
+        audioEffects.release()
         mediaSession?.run {
+            crossfadeController?.release()
             player.removeListener(widgetListener)
+            player.removeListener(preloadListener)
             player.release()
             release()
         }
+        crossfadeController = null
         mediaSession = null
         super.onDestroy()
     }

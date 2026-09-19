@@ -1,47 +1,71 @@
 package com.example.musicsm.ui.theme
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
-// Palette from the Stitch "Glassmorphic Music Streamer" design (Material 3 dark).
+/**
+ * Theme-aware colour tokens.
+ *
+ * These read from [LocalMusicSmPalette], so the same name resolves to the dark, AMOLED, light or
+ * dynamically re-tinted value depending on the user's settings. They are `@Composable` getters,
+ * which means they can only be read from a composable scope — inside a `DrawScope` or other
+ * non-composable lambda, hoist the value out first:
+ *
+ * ```
+ * val tint = OverlayTint
+ * Canvas(Modifier) { drawRect(tint) }
+ * ```
+ */
 
-// Base surfaces (deep blue-black + container tiers).
-val StitchBackground = Color(0xFF121318)
-val SurfaceLowest = Color(0xFF0D0E13)
-val SurfaceLow = Color(0xFF1A1B21)
-val SurfaceContainer = Color(0xFF1E1F25)
-val SurfaceHigh = Color(0xFF292A2F)
-val SurfaceHighest = Color(0xFF34343A)
-val SurfaceBright = Color(0xFF38393F)
+// Base surfaces (deep blue-black + container tiers by default).
+val StitchBackground: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.background
+val SurfaceLowest: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceLowest
+val SurfaceLow: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceLow
+val SurfaceContainer: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceContainer
+val SurfaceHigh: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceHigh
+val SurfaceHighest: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceHighest
+val SurfaceBright: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceBright
 
 // Accents.
-val Coral = Color(0xFFFF525E)       // primary-container — play buttons, glow, progress
-val CoralDark = Color(0xFFD8323E)
-val CoralLight = Color(0xFFFFB3B2)  // primary — highlights
-val Teal = Color(0xFF00DFC1)        // tertiary — spatial/live accents
-val Lavender = Color(0xFFDDB7FF)    // secondary
-val PurpleContainer = Color(0xFF6F00BE)
+val Coral: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.accent
+val CoralDark: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.accentDark
+val CoralLight: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.accentLight
+val Teal: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.teal
+val Lavender: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.lavender
+val PurpleContainer: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.purpleContainer
 
 // Foreground.
-val OnSurfaceLight = Color(0xFFE3E1E9)
-val OnSurfaceVariantPink = Color(0xFFE6BDBC)
-val OutlinePink = Color(0xFFAD8887)
+val OnSurfaceLight: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.onSurface
+val OnSurfaceVariantPink: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.onSurfaceVariant
+val OutlinePink: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.outline
 
 // Glass tokens — translucent fills + hairline strokes for frosted panels.
-val GlassFill = Color(0x1FFFFFFF)
-val GlassFillStrong = Color(0x40292A2F)
-val GlassStroke = Color(0x33FFFFFF)
-val GlassStrokeSoft = Color(0x1AFFFFFF)
+val GlassFill: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.glassFill
+val GlassFillStrong: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.glassFillStrong
+val GlassStroke: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.glassStroke
+val GlassStrokeSoft: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.glassStrokeSoft
 
-// ---- Legacy names kept so existing references keep compiling; remapped to Stitch tokens. ----
-val AppBackground = StitchBackground
-val Surface1 = SurfaceLow
-val SurfaceCard = SurfaceHigh
-val SurfaceElevated = SurfaceContainer
-val OnDark = OnSurfaceLight
-val OnDarkVariant = OnSurfaceVariantPink
-val OnDarkMuted = Color(0x80FFFFFF)
-val DividerColor = Color(0x1FFFFFFF)
-val AppleRed = Coral
-val AppleRedDark = CoralDark
-val SpotifyGreen = Coral
-val SpotifyGreenDark = CoralDark
+/**
+ * Tint for translucent overlays drawn on top of app surfaces — `OverlayTint.copy(alpha = 0.08f)`
+ * is a hairline on dark themes and on light ones alike. Content drawn over *artwork* keeps using
+ * literal `Color.White`, because artwork is always darkened by a scrim.
+ */
+val OverlayTint: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.overlayTint
+
+/** Content colour on top of a filled [Coral] surface. */
+val OnAccent: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.onAccent
+
+// ---- Legacy names kept so existing references keep compiling; remapped to palette tokens. ----
+val AppBackground: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.background
+val Surface1: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceLow
+val SurfaceCard: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceHigh
+val SurfaceElevated: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.surfaceContainer
+val OnDark: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.onSurface
+val OnDarkVariant: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.onSurfaceVariant
+val OnDarkMuted: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.onSurfaceMuted
+val DividerColor: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.divider
+val AppleRed: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.accent
+val AppleRedDark: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.accentDark
+val SpotifyGreen: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.accent
+val SpotifyGreenDark: Color @Composable @ReadOnlyComposable get() = LocalMusicSmPalette.current.accentDark

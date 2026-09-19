@@ -64,7 +64,9 @@ import com.example.musicsm.ui.actions.SongOptionsSheet
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
+import com.example.musicsm.ui.theme.OnAccent
 import com.example.musicsm.ui.theme.OnDarkVariant
+import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.SurfaceHighest
 
 @Composable
@@ -84,11 +86,14 @@ fun ArtistDetailScreen(
         fallback = accentColorFor(ui.name),
     )
 
+    // Palette tokens are composable reads, so they are hoisted out of the draw lambda.
+    val backdrop = AppBackground
+    val bloom = Lavender
     Box(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(AppBackground)
+                drawRect(backdrop)
                 drawRect(
                     Brush.radialGradient(
                         colors = listOf(accent.value.copy(alpha = 0.22f), Color.Transparent),
@@ -98,7 +103,7 @@ fun ArtistDetailScreen(
                 )
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(Lavender.copy(alpha = 0.16f), Color.Transparent),
+                        colors = listOf(bloom.copy(alpha = 0.16f), Color.Transparent),
                         center = Offset(size.width * 0.95f, size.height * 0.25f),
                         radius = size.width * 0.7f,
                     ),
@@ -114,7 +119,7 @@ fun ArtistDetailScreen(
                     Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f))
+                        .background(OverlayTint.copy(alpha = 0.05f))
                         .clickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -227,12 +232,12 @@ private fun ArtistHeader(
             Icon(
                 if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = stringResource(R.string.artist_follow_action),
-                tint = if (liked) Color.White else Coral,
+                tint = if (liked) OnAccent else Coral,
                 modifier = Modifier.size(18.dp),
             )
             Text(
                 stringResource(if (liked) R.string.artist_following else R.string.artist_follow),
-                color = if (liked) Color.White else MaterialTheme.colorScheme.onBackground,
+                color = if (liked) OnAccent else MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -254,9 +259,9 @@ private fun ArtistHeader(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = OnAccent, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.action_play), color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.action_play), color = OnAccent, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
             }
             Row(
                 modifier = Modifier
