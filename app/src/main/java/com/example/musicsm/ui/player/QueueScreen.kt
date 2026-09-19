@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.Icon
@@ -59,7 +58,6 @@ private val RowHeight = 64.dp
 fun QueueScreen(
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
-    onOpenJam: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -90,11 +88,7 @@ fun QueueScreen(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = onOpenJam) {
-                Icon(Icons.Filled.Groups, contentDescription = stringResource(R.string.jam_open), tint = MaterialTheme.colorScheme.onBackground)
-            }
         }
 
         if (state.queue.isEmpty()) {

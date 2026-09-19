@@ -6,7 +6,6 @@ import android.net.Uri
 import android.provider.MediaStore
 import androidx.annotation.StringRes
 import com.example.musicsm.R
-import com.example.musicsm.domain.jam.JamInvite
 
 /**
  * Something the app was asked to do from outside: a launcher shortcut, a `musicsm://` deep link,
@@ -33,9 +32,6 @@ sealed interface AppIntent {
 
     /** A `musicsm://shared/playlist?d=…` link — the whole track list travels in [payload]. */
     data class ImportSharedPlaylist(val payload: String) : AppIntent
-
-    /** A `musicsm://jam?…` link, scanned from a host's QR code or opened from a message. */
-    data class JoinJam(val invite: JamInvite) : AppIntent
 
     /** The link was understood as "ours" but couldn't be used; surface [messageRes] to the user. */
     data class Unsupported(@param:StringRes val messageRes: Int) : AppIntent
@@ -98,10 +94,6 @@ private fun fromAppUri(uri: Uri): AppIntent? {
             ?.takeIf { it.isNotBlank() }
             ?.let(AppIntent::ImportSharedPlaylist)
             ?: AppIntent.Unsupported(R.string.shared_playlist_bad_link)
-        // musicsm://jam?h=…&p=…&t=…&n=… — produced by a Jam host's QR code.
-        "jam" -> JamInvite.parse(uri.toString())
-            ?.let(AppIntent::JoinJam)
-            ?: AppIntent.Unsupported(R.string.jam_error_connect)
         else -> null
     }
 }

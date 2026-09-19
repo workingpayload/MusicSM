@@ -45,7 +45,6 @@ fun ExpandedPlayer(
     onDragDelta: (Float) -> Unit,
     onDragFinished: () -> Unit,
     onEnterAmbient: () -> Unit,
-    onOpenJam: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showQueue by remember { mutableStateOf(false) }
@@ -109,7 +108,6 @@ fun ExpandedPlayer(
                 QueueScreen(
                     viewModel = viewModel,
                     onBack = { showQueue = false },
-                    onOpenJam = onOpenJam,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

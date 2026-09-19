@@ -20,7 +20,6 @@ import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.search.SearchScreen
 import com.example.musicsm.ui.settings.EqualizerScreen
 import com.example.musicsm.ui.settings.SettingsScreen
-import com.example.musicsm.ui.jam.JamScreen
 import com.example.musicsm.ui.share.SharedPlaylistScreen
 import com.example.musicsm.ui.stats.StatsScreen
 
@@ -51,10 +50,7 @@ fun MusicSmNavHost(
         },
     ) {
         composable(Routes.HOME) {
-            HomeScreen(
-                onPlaySongs = { songs, index -> playerViewModel.play(songs, index) },
-                onOpenJam = { navController.navigate(Routes.JAM) },
-            )
+            HomeScreen(onPlaySongs = { songs, index -> playerViewModel.play(songs, index) })
         }
         composable(Routes.SEARCH) {
             SearchScreen(
@@ -110,15 +106,6 @@ fun MusicSmNavHost(
                 },
                 onPlay = { songs, index -> playerViewModel.play(songs, index) },
             )
-        }
-        composable(
-            route = Routes.JAM,
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
-        ) {
-            JamScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.SETTINGS,

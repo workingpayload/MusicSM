@@ -183,11 +183,6 @@ fun MusicSmRoot(
                             toast(context, badLinkMessage)
                         }
                     }
-                    is AppIntent.JoinJam -> {
-                        intentViewModel.joinJam(appIntent.invite)
-                        collapse()
-                        navController.navigate(Routes.JAM)
-                    }
                     is AppIntent.Unsupported -> toast(context, context.getString(appIntent.messageRes))
                 }
             }
@@ -273,10 +268,6 @@ fun MusicSmRoot(
                         onDragDelta = onDragDelta,
                         onDragFinished = { onDragFinished() },
                         onEnterAmbient = { ambientMode = true },
-                        onOpenJam = {
-                            collapse()
-                            navController.navigate(Routes.JAM)
-                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

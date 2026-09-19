@@ -2,8 +2,6 @@ package com.example.musicsm.ui.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.musicsm.data.jam.JamManager
-import com.example.musicsm.domain.jam.JamCommand
 import com.example.musicsm.domain.model.Lyrics
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.domain.repository.LibraryRepository
@@ -46,7 +44,6 @@ class PlayerViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val sleepTimerManager: SleepTimerManager,
     private val preferences: AppPreferences,
-    private val jamManager: JamManager,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = controller.state
@@ -106,22 +103,10 @@ class PlayerViewModel @Inject constructor(
     }
 
     /** Play a list of songs starting at [startIndex] (e.g. an album, playlist, or search list). */
-    fun play(songs: List<Song>, startIndex: Int = 0) {
-        // A guest picking a track contributes it to the host's queue rather than starting its own
-        // audio. Only the chosen track travels — pushing a whole album into a shared Jam is rude.
-        if (jamManager.isGuest) {
-            songs.getOrNull(startIndex)?.let(::enqueue)
-            return
-        }
-        controller.playSongs(songs, startIndex)
-    }
+    fun play(songs: List<Song>, startIndex: Int = 0) = controller.playSongs(songs, startIndex)
 
     /** Play a single song, then extend the queue with related tracks (radio). */
     fun playWithRadio(song: Song) {
-        if (jamManager.isGuest) {
-            enqueue(song)
-            return
-        }
         controller.playSongs(listOf(song))
         viewModelScope.launch {
             runCatching { musicRepository.relatedTo(song.id) }
@@ -177,10 +162,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    // Transport on a guest drives the host's player, which is the only one making sound.
-    fun togglePlayPause() = jamOr(JamCommand.PlayPause) { controller.togglePlayPause() }
-    fun next() = jamOr(JamCommand.Next) { controller.next() }
-    fun previous() = jamOr(JamCommand.Previous) { controller.previous() }
+    fun togglePlayPause() = controller.togglePlayPause()
+    fun next() = controller.next()
+    fun previous() = controller.previous()
     fun seekToFraction(fraction: Float) {
         val duration = state.value.durationMs
         if (duration > 0) controller.seekTo((fraction * duration).toLong())
@@ -193,30 +177,13 @@ class PlayerViewModel @Inject constructor(
     /** Shuffle-play a list. Turns shuffle *on* (never off) and starts on a random track. */
     fun shufflePlay(songs: List<Song>) {
         if (songs.isEmpty()) return
-        if (jamManager.isGuest) {
-            enqueue(songs.random())
-            return
-        }
         controller.setShuffle(true)
         controller.playSongs(songs, songs.indices.random())
     }
     fun setShuffle(enabled: Boolean) = controller.setShuffle(enabled)
     fun cycleRepeat() = controller.cycleRepeat()
-    // A guest has no audio of its own — queueing has to happen on the host's player.
-    // "Play next" degrades to a plain enqueue, since the wire protocol has no insert-at command.
-    fun addToQueue(song: Song) = enqueue(song)
-    fun playNext(song: Song) {
-        if (jamManager.isGuest) enqueue(song) else controller.playNext(song)
-    }
-
-    private fun enqueue(song: Song) {
-        if (jamManager.isGuest) jamManager.request(JamCommand.AddSong(song)) else controller.addToQueue(song)
-    }
-
-    /** Forwards [command] to the Jam host when we're a guest, otherwise runs [local]. */
-    private inline fun jamOr(command: JamCommand, local: () -> Unit) {
-        if (jamManager.isGuest) jamManager.request(command) else local()
-    }
+    fun addToQueue(song: Song) = controller.addToQueue(song)
+    fun playNext(song: Song) = controller.playNext(song)
     fun moveQueueItem(from: Int, to: Int) = controller.moveItem(from, to)
     fun removeQueueItem(index: Int) = controller.removeItem(index)
 

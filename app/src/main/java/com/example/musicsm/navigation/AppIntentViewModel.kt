@@ -1,8 +1,6 @@
 package com.example.musicsm.navigation
 
 import androidx.lifecycle.ViewModel
-import com.example.musicsm.data.jam.JamManager
-import com.example.musicsm.domain.jam.JamInvite
 import com.example.musicsm.domain.share.PlaylistShareCodec
 import com.example.musicsm.ui.search.SearchRequestBus
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,7 +11,6 @@ import javax.inject.Inject
 class AppIntentViewModel @Inject constructor(
     private val searchRequests: SearchRequestBus,
     private val sharedPlaylists: SharedPlaylistBus,
-    private val jamManager: JamManager,
 ) : ViewModel() {
 
     /** Pre-fill the Search tab with [query] (the search runs automatically). */
@@ -31,10 +28,5 @@ class AppIntentViewModel @Inject constructor(
         val playlist = PlaylistShareCodec.decode(payload) ?: return false
         sharedPlaylists.offer(playlist)
         return true
-    }
-
-    /** Connects to a Jam from a scanned code. The Jam screen renders the result either way. */
-    fun joinJam(invite: JamInvite) {
-        jamManager.join(invite, displayName = android.os.Build.MODEL.ifBlank { "Guest" })
     }
 }

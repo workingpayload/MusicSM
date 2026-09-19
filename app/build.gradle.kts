@@ -47,8 +47,8 @@ android {
     }
     testOptions {
         unitTests {
-            // The Jam socket tests drive JamServer/JamClient in-process, and those log through
-            // android.util.Log. Without this every Log call throws "not mocked" on the JVM.
+            // Plenty of the code under test touches android.util.Log and android.net.Uri, which
+            // throw "not mocked" on the JVM unless stubbed methods return defaults instead.
             isReturnDefaultValues = true
         }
     }

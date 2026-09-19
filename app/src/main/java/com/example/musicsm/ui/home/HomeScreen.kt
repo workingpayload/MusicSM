@@ -26,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,7 +72,6 @@ import com.example.musicsm.ui.theme.SurfaceLow
 @Composable
 fun HomeScreen(
     onPlaySongs: (List<Song>, Int) -> Unit,
-    onOpenJam: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -123,22 +121,6 @@ fun HomeScreen(
                 is HomeUiState.Content -> HomeContent(s.feed.sections, s.offline, onPlaySongs, viewModel::saveShelf)
             }
         }
-
-        // Deliberately outside the state branches: a phone on a data-less hotspot lands on the
-        // error state, and that is exactly when someone wants to join a Jam.
-        IconButton(
-            onClick = onOpenJam,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 12.dp, end = 8.dp),
-        ) {
-            Icon(
-                Icons.Filled.Groups,
-                contentDescription = stringResource(R.string.jam_open),
-                tint = MaterialTheme.colorScheme.onBackground,
-            )
-        }
     }
 }
 
@@ -160,16 +142,12 @@ private fun HomeContent(
     ) {
         // Header
         item {
-            Row(
-                modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp, end = 56.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Column(modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp, end = 16.dp)) {
                 Text(
                     text = stringResource(if (offline) R.string.home_title_offline else R.string.home_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.weight(1f),
                 )
             }
         }
