@@ -1,4 +1,4 @@
-import { apkAssets, fetchLatestRelease, recordDownload } from './_lib.js';
+import { apkAssets, fetchReleases, latestStable, recordDownload } from './_lib.js';
 
 /**
  * GitHub only ever serves release assets from these hosts.
@@ -20,26 +20,28 @@ const ALLOWED_HOSTS = new Set([
  * download would be slow, costly and pointless when GitHub's CDN is already doing it well — and
  * proxying would also hide the download from GitHub's own counter.
  *
- * `?id=` selects a specific asset; anything unrecognised falls back to the first APK, so a stale
- * bookmark still installs the app instead of erroring.
+ * `?id=` selects a specific asset and is matched against *every* release, so an old link or a
+ * bookmark for a previous version still resolves to the build it asked for. Anything
+ * unrecognised falls back to the newest APK rather than erroring.
  */
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
-  let release;
+  let releases;
   try {
-    release = await fetchLatestRelease();
+    releases = await fetchReleases();
   } catch {
     return res.status(502).send('Could not reach GitHub. Please try the release page instead.');
   }
 
-  const assets = apkAssets(release);
-  if (assets.length === 0) {
+  const requested = String(req.query?.id ?? '');
+  const everyApk = releases.flatMap((release) => apkAssets(release));
+  const newest = apkAssets(latestStable(releases));
+
+  const asset = everyApk.find((a) => String(a.id) === requested) ?? newest[0];
+  if (!asset) {
     return res.status(404).send('No APK has been published yet.');
   }
-
-  const requested = String(req.query?.id ?? '');
-  const asset = assets.find((a) => String(a.id) === requested) ?? assets[0];
 
   let target;
   try {

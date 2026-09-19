@@ -12,7 +12,7 @@
       ]
     },
     {
-      "source": "/(styles.css|app.js|icon.png)",
+      "source": "/(styles.css|app.js|icon.png|icon-large.jpg)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }
       ]

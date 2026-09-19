@@ -82,7 +82,8 @@ function showNoRelease(message) {
   el("download-label").textContent = "Watch for releases";
 }
 
-function renderRelease(release) {
+function renderRelease(data) {
+  const release = data.release;
   const primary = release.assets[0];
 
   el("release-pill").textContent = `${release.version} · free and open source`;
@@ -92,7 +93,6 @@ function renderRelease(release) {
 
   const released = formatDate(release.publishedAt);
   el("stat-released").textContent = released ? `Released ${released}` : "";
-  setCount(el("stat-github"), release.githubDownloads);
 
   if (!primary) {
     showNoRelease(`${release.version} · no APK attached`);
@@ -135,11 +135,16 @@ async function loadRelease() {
     if (!res.ok) throw new Error(`release endpoint returned ${res.status}`);
 
     const data = await res.json();
+
+    // A lifetime figure across every release, so it survives each new version rather than
+    // resetting to zero. Shown even when there is no downloadable build right now.
+    setCount(el("stat-github"), data.githubDownloads);
+
     if (!data.release) {
       showNoRelease("No build published yet");
       return;
     }
-    renderRelease(data.release);
+    renderRelease(data);
   } catch {
     // The static link already points at /api/download, which resolves the asset server-side, so
     // the button keeps working even though we could not describe the build.

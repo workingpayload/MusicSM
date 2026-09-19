@@ -69,8 +69,17 @@ export async function recordDownload(assetName) {
   }
 }
 
-/** The newest non-draft, non-prerelease release, or `null` if the repo has not published one. */
-export async function fetchLatestRelease() {
+/**
+ * Every release, newest first.
+ *
+ * One call rather than hitting `releases/latest` separately: the page needs the newest build for
+ * the download button *and* the download totals from every release ever published, and both come
+ * out of this single response.
+ *
+ * Capped at 100 releases, which is GitHub's maximum page size. Beyond that the totals would
+ * silently undercount and this would need real pagination.
+ */
+export async function fetchReleases() {
   const headers = {
     Accept: 'application/vnd.github+json',
     'User-Agent': 'musicsm-landing-page',
@@ -79,10 +88,25 @@ export async function fetchLatestRelease() {
   // share across a whole region. The edge cache on /api/release normally keeps us well under it.
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
 
-  const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers });
-  if (res.status === 404) return null;
+  const res = await fetch(
+    `https://api.github.com/repos/${REPO}/releases?per_page=100`,
+    { headers },
+  );
+  if (res.status === 404) return [];
   if (!res.ok) throw new Error(`GitHub responded ${res.status}`);
-  return res.json();
+
+  const body = await res.json();
+  return Array.isArray(body) ? body : [];
+}
+
+/**
+ * The build to actually offer people.
+ *
+ * Mirrors what `releases/latest` would have returned — drafts and pre-releases are skipped, so a
+ * release candidate sitting at the top of the list never becomes the download everyone gets.
+ */
+export function latestStable(releases) {
+  return releases.find((r) => !r.draft && !r.prerelease) ?? null;
 }
 
 const APK = /\.apk$/i;
@@ -90,4 +114,19 @@ const APK = /\.apk$/i;
 /** Just the installable builds — release notes, mapping files and checksums are not downloads. */
 export function apkAssets(release) {
   return (release?.assets ?? []).filter((a) => APK.test(a.name));
+}
+
+/**
+ * Lifetime APK downloads across every release.
+ *
+ * Deliberately not scoped to the current version: the interesting number is how many people have
+ * installed MusicSM, and counting only the newest release would reset that to zero on every
+ * single publish.
+ */
+export function totalApkDownloads(releases) {
+  return releases.reduce(
+    (total, release) =>
+      total + apkAssets(release).reduce((n, a) => n + (a.download_count || 0), 0),
+    0,
+  );
 }

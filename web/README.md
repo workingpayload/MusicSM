@@ -8,10 +8,11 @@ web/
 ├── index.html        the page
 ├── styles.css        palette, typography and glass lifted from ui/theme/Palette.kt
 ├── app.js            fills the page in from the API; pure progressive enhancement
-├── icon.png          the app's launcher icon
+├── icon.png          the launcher icon, used for the favicon and nav
+├── icon-large.jpg    the hero artwork, cropped from the 1024px source icon
 └── api/
     ├── _lib.js       shared GitHub + Redis helpers (the _ prefix keeps it off the router)
-    ├── release.js    latest release metadata, edge-cached for 5 minutes
+    ├── release.js    latest release + lifetime totals, edge-cached for 5 minutes
     ├── stats.js      the live page-click counter, never cached
     └── download.js   counts the click, then redirects to the APK on GitHub
 ```
@@ -32,12 +33,16 @@ Two numbers are shown, because neither one is a superset of the other:
 
 | Counter | Source | What it means |
 | --- | --- | --- |
-| **Downloads from GitHub** | GitHub's `download_count` | Every fetch of the APK, however it was reached. Ground truth for the file, and impossible to reset or inflate from here. |
-| **Downloads from this page** | `INCR` in Redis | Clicks that actually started on this page. |
+| **Downloads from GitHub** | GitHub's `download_count` | Every APK fetch across **every release ever published**, however it was reached. Ground truth for the file, and impossible to reset or inflate from here. Counted lifetime rather than per-version deliberately: scoping it to the newest release would reset the number to zero on every publish. |
+| **Downloads from this page** | `INCR` in Redis | Clicks that actually started on this page, all time. |
 
 `/api/download` increments the counter and then **302s to GitHub** rather than proxying the file.
-Streaming ~19 MB through a function for every download would be slow and costly when GitHub's CDN
+Streaming ~6 MB through a function for every download would be slow and costly when GitHub's CDN
 already does it well, and proxying would hide the download from GitHub's own counter.
+
+`?id=` is matched against the assets of *every* release, so a link to an older version still
+resolves to that exact build. An unrecognised id falls back to the newest APK rather than
+erroring.
 
 ### Turning on the page counter
 
