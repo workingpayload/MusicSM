@@ -84,6 +84,7 @@ import com.example.musicsm.ui.components.currentLocale
 import com.example.musicsm.ui.components.rememberDominantColorState
 import com.example.musicsm.ui.util.formatDuration
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -302,8 +303,7 @@ fun AmbientScreen(
                             )
                             Spacer(Modifier.height(28.dp))
                             AmbientProgress(
-                                progress = state.progress,
-                                positionMs = state.positionMs,
+                                positionFlow = viewModel.position,
                                 durationMs = state.durationMs,
                                 accent = accent,
                             )
@@ -330,8 +330,7 @@ fun AmbientScreen(
                         )
                         Spacer(Modifier.height(32.dp))
                         AmbientProgress(
-                            progress = state.progress,
-                            positionMs = state.positionMs,
+                            positionFlow = viewModel.position,
                             durationMs = state.durationMs,
                             accent = accent,
                         )
@@ -558,13 +557,16 @@ private fun AmbientText(
  */
 @Composable
 private fun AmbientProgress(
-    progress: Float,
-    positionMs: Long,
+    positionFlow: StateFlow<Long>,
     durationMs: Long,
     accent: State<Color>,
     modifier: Modifier = Modifier,
 ) {
     if (durationMs <= 0L) return
+    // Collected here in the leaf so the ~1s position updates recompose only this thin line, not the
+    // whole screensaver (whose continuous aurora/breath animations read their State in draw phase).
+    val positionMs by positionFlow.collectAsStateWithLifecycle()
+    val progress = (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             Modifier

@@ -119,8 +119,9 @@ fun ExpandedPlayer(
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         ) {
+            val position by viewModel.position.collectAsStateWithLifecycle()
             val smoothPos = rememberSmoothPosition(
-                positionMs = playerState.positionMs,
+                positionMs = position,
                 isPlaying = playerState.isPlaying,
                 durationMs = playerState.durationMs,
             )

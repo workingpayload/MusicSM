@@ -44,11 +44,17 @@ class DownloadService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (job == null) {
             job = scope.launch {
-                // Skip the initial empty snapshot; stop once downloads finish.
+                // The mapped progress can still read empty when we first subscribe (the
+                // non-empty value hasn't propagated across the IO dispatcher yet), so ignore
+                // empty snapshots until we've actually seen work — otherwise the service would
+                // stop itself before the download registers. Once work has begun, an empty map
+                // means every download finished, so we stop.
+                var sawWork = false
                 downloadRepository.progress.collect { map ->
                     if (map.isEmpty()) {
-                        stop()
+                        if (sawWork) stop()
                     } else {
+                        sawWork = true
                         val avg = (map.values.sum() / map.size * 100).toInt()
                         notify(buildNotification(map.size, avg))
                     }

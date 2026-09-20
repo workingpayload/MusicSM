@@ -48,6 +48,9 @@ class PlayerViewModel @Inject constructor(
 
     val state: StateFlow<PlayerState> = controller.state
 
+    /** Fine-grained playback position (ms) for the scrubber, synced lyrics and ambient progress. */
+    val position: StateFlow<Long> = controller.position
+
     /** Countdown state of the sleep timer, or an inactive snapshot. */
     val sleepTimer: StateFlow<SleepTimerState> = sleepTimerManager.state
 

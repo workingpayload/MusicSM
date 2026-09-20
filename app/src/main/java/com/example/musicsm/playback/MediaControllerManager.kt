@@ -42,6 +42,12 @@ class MediaControllerManager @Inject constructor(
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    // Playback position is split out of PlayerState so the ~1s ticker updates only this flow instead
+    // of allocating a whole new PlayerState (and rebuilding the queue) twice a second. Only the
+    // scrubber / lyrics / ambient progress observe it; the rest of the UI ignores position churn.
+    private val _position = MutableStateFlow(0L)
+    val position: StateFlow<Long> = _position.asStateFlow()
+
     // The volume the user set. The crossfade/sleep-timer transiently write the player's actual
     // volume; the UI slider tracks this instead so it doesn't jump around during transitions.
     private var userVolume = 1f
@@ -190,8 +196,14 @@ class MediaControllerManager @Inject constructor(
         if (ticker?.isActive == true) return
         ticker = scope.launch {
             while (isActive) {
-                pushState()
-                delay(500)
+                val c = controller
+                if (c != null) {
+                    // Cheap per-tick work: just publish the new position and (throttled) persist the
+                    // queue. The full PlayerState/queue is rebuilt only on real events in pushState().
+                    _position.value = c.currentPosition.coerceAtLeast(0L)
+                    persistQueue()
+                }
+                delay(TICK_MS)
             }
         }
     }
@@ -214,13 +226,15 @@ class MediaControllerManager @Inject constructor(
             (0 until count).map { MediaItemMapper.toSong(c.getMediaItemAt(it)) }
         }
         val duration = c.duration.takeIf { it != C.TIME_UNSET } ?: 0L
+        // Refresh the position immediately on events too, so seeks/track changes reflect at once
+        // instead of waiting for the next tick.
+        _position.value = c.currentPosition.coerceAtLeast(0L)
         _state.value = PlayerState(
             isConnected = true,
             currentSong = c.currentMediaItem?.let(MediaItemMapper::toSong),
             isPlaying = c.isPlaying,
             isBuffering = c.playbackState == Player.STATE_BUFFERING,
             isEnded = c.playbackState == Player.STATE_ENDED,
-            positionMs = c.currentPosition.coerceAtLeast(0L),
             durationMs = duration.coerceAtLeast(0L),
             queue = queue,
             currentIndex = c.currentMediaItemIndex.coerceAtLeast(0),
@@ -254,10 +268,17 @@ class MediaControllerManager @Inject constructor(
         if (!force && !changed && now - lastSaveAtMs < SAVE_INTERVAL_MS) return
         lastSavedSignature = signature
         lastSaveAtMs = now
-        preferences.saveQueue(snapshot.queue, snapshot.currentIndex, snapshot.positionMs)
+        // Serialize + write off the main thread: saveQueue builds a JSON string of the whole queue,
+        // which shouldn't run on the UI thread during a tick.
+        val queue = snapshot.queue
+        val index = snapshot.currentIndex
+        val positionMs = _position.value
+        scope.launch(Dispatchers.IO) { preferences.saveQueue(queue, index, positionMs) }
     }
 
     private companion object {
         const val SAVE_INTERVAL_MS = 5_000L
+        // 1s is fine for a progress bar (the UI interpolates between ticks) and halves the wakeups.
+        const val TICK_MS = 1_000L
     }
 }

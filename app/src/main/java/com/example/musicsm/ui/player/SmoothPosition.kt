@@ -7,6 +7,10 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.musicsm.ui.components.AppleSeekBar
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 
 /**
@@ -36,4 +40,30 @@ fun rememberSmoothPosition(
         }
     }
     return smooth
+}
+
+/**
+ * The scrubber wired to the player's [positionFlow]. Crucially, the position is collected AND the
+ * per-frame interpolated value is read here, in this leaf composable — never in the caller's scope.
+ * Because [rememberSmoothPosition] returns a value that changes every frame, reading it here confines
+ * the ~60fps recomposition to just this seek bar instead of re-running the entire Now-Playing screen.
+ */
+@Composable
+fun SmoothSeekBar(
+    positionFlow: StateFlow<Long>,
+    isPlaying: Boolean,
+    durationMs: Long,
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val position by positionFlow.collectAsStateWithLifecycle()
+    val smooth = rememberSmoothPosition(position, isPlaying, durationMs)
+    val progress = if (durationMs > 0) (smooth.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+    AppleSeekBar(
+        progress = progress,
+        durationMs = durationMs,
+        onSeek = onSeek,
+        modifier = modifier,
+        playing = isPlaying,
+    )
 }

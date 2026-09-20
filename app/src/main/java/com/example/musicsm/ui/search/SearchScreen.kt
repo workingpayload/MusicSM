@@ -21,7 +21,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -294,7 +294,8 @@ private fun ResultsList(
             item { SectionHeader(stringResource(R.string.section_artists)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    items(results.artists, key = { it.id }) { artist ->
+                    // Index in the key guarantees uniqueness even if two artists share an id.
+                    itemsIndexed(results.artists, key = { index, artist -> "$index-${artist.id}" }) { _, artist ->
                         ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
                     }
                 }
@@ -304,7 +305,8 @@ private fun ResultsList(
             item { SectionHeader(stringResource(R.string.section_albums)) }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    items(results.albums, key = { it.id }) { album ->
+                    // Index in the key guarantees uniqueness even if two albums share an id.
+                    itemsIndexed(results.albums, key = { index, album -> "$index-${album.id}" }) { _, album ->
                         AlbumCard(album = album, onClick = { onOpenAlbum(album.id) })
                     }
                 }
@@ -312,7 +314,8 @@ private fun ResultsList(
         }
         if (results.songs.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.section_songs)) }
-            items(results.songs, key = { it.id }) { song ->
+            // Index in the key guarantees uniqueness even if two songs share an id.
+            itemsIndexed(results.songs, key = { index, song -> "$index-${song.id}" }) { _, song ->
                 SongRow(
                     song = song,
                     onClick = { onPlaySong(song) },

@@ -95,7 +95,6 @@ import com.example.musicsm.ui.library.AddToPlaylistSheet
 import com.example.musicsm.ui.library.LibraryViewModel
 import com.example.musicsm.ui.util.shareSong
 import kotlinx.coroutines.flow.flowOf
-import com.example.musicsm.ui.components.AppleSeekBar
 import com.example.musicsm.ui.components.ArtworkImage
 import com.example.musicsm.ui.components.HueCircularProgress
 import com.example.musicsm.ui.components.LocalHazeState
@@ -330,16 +329,13 @@ fun NowPlayingScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // Apple Music-style scrubber, fed a frame-interpolated position for smooth motion.
-        val smoothPos = rememberSmoothPosition(state.positionMs, state.isPlaying, state.durationMs)
-        val smoothProgress = if (state.durationMs > 0) {
-            (smoothPos.toFloat() / state.durationMs).coerceIn(0f, 1f)
-        } else 0f
-        AppleSeekBar(
-            progress = smoothProgress,
+        // Apple Music-style scrubber. Position is collected and frame-interpolated INSIDE
+        // SmoothSeekBar (a leaf), so its ~60fps updates never recompose this whole screen.
+        SmoothSeekBar(
+            positionFlow = viewModel.position,
+            isPlaying = state.isPlaying,
             durationMs = state.durationMs,
             onSeek = viewModel::seekToFraction,
-            playing = state.isPlaying,
         )
 
         Spacer(Modifier.height(16.dp))

@@ -34,7 +34,21 @@ class CrossfadeController(
         set(value) {
             val clamped = value.coerceAtLeast(0)
             field = clamped
-            if (clamped > 0) startMonitor() else stopMonitor()
+            if (clamped > 0) {
+                // Feature on: watch play state and poll only while actually playing.
+                if (!listenerAttached) {
+                    mainPlayer.addListener(playStateListener)
+                    listenerAttached = true
+                }
+                if (mainPlayer.isPlaying) startMonitor() else stopMonitor()
+            } else {
+                // Feature off: stop polling and detach the play-state listener.
+                stopMonitor()
+                if (listenerAttached) {
+                    mainPlayer.removeListener(playStateListener)
+                    listenerAttached = false
+                }
+            }
         }
 
     private var monitorJob: Job? = null
@@ -43,6 +57,20 @@ class CrossfadeController(
 
     /** videoId of the track we've already begun crossfading out of (guards double-trigger). */
     private var crossfadedFrom: String? = null
+
+    /** Whether [playStateListener] is currently attached to [mainPlayer]. */
+    private var listenerAttached = false
+
+    /**
+     * Gates the polling loop on real playback state: the monitor only wakes every [POLL_MS] while
+     * audio is actually playing, not for the whole life of the (long-lived) service. Pausing tears
+     * the loop down; resuming (with crossfade still enabled) brings it back.
+     */
+    private val playStateListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying && crossfadeMs > 0) startMonitor() else stopMonitor()
+        }
+    }
 
     private fun startMonitor() {
         if (monitorJob?.isActive == true) return
@@ -154,6 +182,10 @@ class CrossfadeController(
 
     fun release() {
         stopMonitor()
+        if (listenerAttached) {
+            mainPlayer.removeListener(playStateListener)
+            listenerAttached = false
+        }
         fadeJob?.cancel()
         fadeJob = null
         secondary?.release()

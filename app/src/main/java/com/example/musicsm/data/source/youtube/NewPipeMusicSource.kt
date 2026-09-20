@@ -181,11 +181,13 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
         searchItems(query, YoutubeSearchQueryHandlerFactory.MUSIC_SONGS, limit)
             .filterIsInstance<StreamInfoItem>()
             .mapNotNull { it.toSongOrNull() }
+            .distinctBy { it.id }
 
     private fun searchAlbums(query: String, limit: Int): List<Album> =
         searchItems(query, YoutubeSearchQueryHandlerFactory.MUSIC_ALBUMS, limit)
             .filterIsInstance<PlaylistInfoItem>()
             .map { it.toAlbum() }
+            .distinctBy { it.id }
 
     private fun PlaylistInfoItem.toAlbum() = Album(
         id = url,
@@ -198,12 +200,14 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
         searchItems(query, YoutubeSearchQueryHandlerFactory.MUSIC_ARTISTS, limit)
             .filterIsInstance<ChannelInfoItem>()
             .map { item ->
+                // [id] doubles as the query for [artist]; it must stay the display name, not the URL.
                 Artist(
                     id = item.name.orEmpty().ifBlank { item.url },
                     name = item.name.orEmpty(),
                     artworkUrl = bestThumbnail(item.thumbnails),
                 )
             }
+            .distinctBy { it.id }
 
     /**
      * Runs a search and collects up to [limit] items, following at most [pages] result pages.
