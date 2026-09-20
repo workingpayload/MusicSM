@@ -1,6 +1,6 @@
 # MusicSM
 
-**v2.0.0** — A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans).
+**v2.0.1** — A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans). Also plays music stored on your device.
 
 > **Not shippable to Google Play.** MusicSM streams from YouTube and depends on GPLv3 `NewPipeExtractor`; it is a personal / educational project, not a distributable product.
 
@@ -15,8 +15,10 @@
 
 **Library, playlists & sharing**
 - Liked songs + local playlists (custom covers, delete).
+- **Local files** — play music stored on the device (scanned from MediaStore); like it and add it to playlists like any track.
 - **Import from a Spotify link** — paste a public playlist URL; tracks matched on YouTube and saved.
 - **Share** playlists via link / QR code, and **scan** a code to open one.
+- **Backup & restore** — export the whole library + settings to a portable JSON file and merge it back on a new install (no account login needed).
 
 **Offline**
 - **Automatic caching** — played tracks are cached to disk (LRU‑capped) and replay offline, Spotify‑style.
@@ -26,11 +28,14 @@
 - Background playback via a Media3 **MediaLibraryService**; notification / lockscreen controls reopen the app.
 - **True overlapping crossfade**, **equalizer + audio effects** (bass boost, virtualizer, loudness, skip‑silence, speed), **sleep timer**, high‑bitrate audio.
 - Frame‑interpolated position so the seek bar and live synced lyrics stay smooth.
+- **Resilient streaming** — an expired or rejected stream URL is re‑resolved on the fly, and a track that still fails is skipped rather than stalling playback.
 
 **Beyond the phone**
 - **Android Auto** (browse + play), **Wear OS** transport, a **home‑screen widget**, a **Quick Settings tile**, deep links / "Open with" & "Share to MusicSM" for YouTube links, and voice "play … on MusicSM".
 
 **Now Playing** — blurred artwork backdrop, breathing album art, hue‑cycling frosted‑glass play/pause button, animated multi‑hue seek bar, glassy album‑tinted volume, queue, and live lyrics.
+
+**Support** — a "Buy me a coffee" option at the top of Settings pays over **UPI** (Google Pay / PhonePe / Paytm / any UPI app) or copies the UPI ID.
 
 ## Screenshots
 
@@ -54,7 +59,7 @@
 | DI | Hilt 2.60.1 |
 | Playback | AndroidX Media3 1.11.0 (ExoPlayer + MediaLibraryService, cache, effects) |
 | Data | NewPipeExtractor v0.26.5 (YouTube); Spotify public embed for playlist import |
-| Storage | Room 2.8.4 (v4 schema) |
+| Storage | Room 2.8.4 (v6 schema) |
 | Images | Coil 3 |
 | Glass blur | Haze |
 | Reach | Android Auto · Wear OS · App Widget · Quick Settings tile |

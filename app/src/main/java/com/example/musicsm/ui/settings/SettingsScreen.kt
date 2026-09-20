@@ -495,17 +495,16 @@ private fun SupportDialog(onDismiss: () -> Unit) {
                     UpiAppButton(stringResource(R.string.coffee_any)) { launchUpi(context, "upi://pay?$params", params) }
                 }
                 Spacer(Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.coffee_upi_label), style = MaterialTheme.typography.labelMedium, color = Coral)
-                        Text(UPI_VPA, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = OnDark)
-                    }
-                    TextButton(onClick = {
-                        clipboard.setText(AnnotatedString(UPI_VPA))
-                        Toast.makeText(context, context.getString(R.string.coffee_copied), Toast.LENGTH_SHORT).show()
-                    }) { Text(stringResource(R.string.coffee_copy)) }
-                }
+                Text(stringResource(R.string.coffee_upi_label), style = MaterialTheme.typography.labelMedium, color = Coral)
+                Text(UPI_VPA, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = OnDark)
             }
+        },
+        // Copy leaves the dialog open (you may still want to pick an app); Close dismisses it.
+        dismissButton = {
+            TextButton(onClick = {
+                clipboard.setText(AnnotatedString(UPI_VPA))
+                Toast.makeText(context, context.getString(R.string.coffee_copied), Toast.LENGTH_SHORT).show()
+            }) { Text(stringResource(R.string.coffee_copy)) }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }

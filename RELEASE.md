@@ -1,5 +1,31 @@
 # Release notes
 
+## v2.0.1 — 2026-09-20
+
+A stability, performance, and reach patch on top of v2.0.0.
+
+### Fixes
+- **Fixed the crash when updating from an older build.** v2.0.0 shipped with R8 full mode stripping reflection-driven code (NewPipeExtractor / Rhino / ML Kit); this build ships with the correct configuration, so upgrading no longer crashes on launch.
+- **Fixed a crash while searching.** Duplicate results from YouTube (e.g. same-name official / VEVO / "Topic" artist channels) are de-duplicated, so the results list can no longer crash on a repeated key.
+- **Fixed downloads silently failing in the background** — the download service no longer stops itself before a download has registered.
+- **Songs that used to "load and stop" now recover** — an expired or rejected stream URL is re-resolved on the fly, and the track is skipped after a couple of retries instead of leaving playback stuck.
+- **Tapping an artist opens instantly** instead of landing on a blank screen; the page now shows the artist's name while it loads.
+
+### Performance & battery
+- Removed two recomposition storms in the player — playback position is now its own stream — so scrolling and the Now Playing screen stay smooth while music plays.
+- The queue is no longer rebuilt and re-serialized on the main thread twice a second.
+- Crossfade no longer polls in the background while paused, and the position tick was halved (500ms → 1s); both cut idle battery drain.
+
+### New
+- **Local files** — play music stored on your device (scanned from the system media library); like it and add it to playlists like any other track. New entry in the Library.
+- **Backup & restore** — export your whole library and settings to a single file and merge it back on a new install (there is no account login). Playlists merge by name and nothing existing is overwritten.
+- **Buy me a coffee** — a support option at the top of Settings: pay over **UPI** (Google Pay / PhonePe / Paytm / any UPI app) or copy the UPI ID.
+
+### Notes
+- **No database change** (still schema v6) — your library carries over untouched.
+- Backups include liked songs, playlists, play history / stats and settings. Downloaded audio files aren't bundled (they re-download on demand), and device-local file references may not resolve on a different phone.
+- Still not Play-shippable — GPLv3 NewPipeExtractor + YouTube ToS; personal / educational use.
+
 ## v2.0.0 — 2026-09-20
 
 A major release: offline, sharing, room-filling playback, and reach beyond the phone.
