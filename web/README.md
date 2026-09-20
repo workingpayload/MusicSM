@@ -84,6 +84,26 @@ Version, file size, release date and download count all update on their own with
 Attach more than one APK (per-ABI splits, for instance) and the extras appear as secondary chips
 under the main button.
 
+## Caching, and the one rule to remember
+
+`index.html` is never cached, so a deploy is visible immediately. The assets it references are
+cached differently on purpose:
+
+| Asset | Policy | Why |
+| --- | --- | --- |
+| `index.html`, `/api/stats` | no cache | must always be current |
+| `styles.css`, `app.js` | `no-cache` (revalidate every load) | a few KB, and a stale copy paired with fresh HTML breaks the page |
+| `icon.png`, `icon-large.jpg` | `immutable`, one year | heavy, and rarely change |
+
+**If you change an image, bump its `?v=` in `index.html`.** The images are served `immutable`, so
+browsers will not re-request them otherwise — the query string is what makes the URL new.
+
+This matters because the two are not independent. The HTML and the CSS/JS are written against
+each other, and an earlier version of this page cached all three for an hour: returning visitors
+got new HTML with hour-old CSS and JS, which stretched the hero image and left the download
+counter showing a placeholder dash. `no-cache` on the two text assets removes that whole class of
+bug for the cost of one 304 per visit.
+
 ## Local development
 
 ```bash

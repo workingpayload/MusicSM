@@ -426,7 +426,7 @@ h1 .accent {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
-  width: min(100%, 380px);
+  width: min(100%, 460px);
 }
 
 /* The sleeve bloom from ambient mode: a glow in the artwork's own colour, never a black shadow. */
@@ -442,14 +442,14 @@ h1 .accent {
 
 .hero-art img {
   position: relative;
-  width: 78%;
+  width: 92%;
   /*
    * The width/height attributes on the <img> are presentational hints that map to CSS. Setting
    * only `width` here would leave the height hint in force and stretch the square icon, so the
    * height has to be explicitly handed back to the intrinsic aspect ratio.
    */
   height: auto;
-  border-radius: 38px;
+  border-radius: 13%;
   border: 1px solid var(--glass-stroke);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   animation: breathe 11s ease-in-out infinite;

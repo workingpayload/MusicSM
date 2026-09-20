@@ -12,9 +12,15 @@
       ]
     },
     {
-      "source": "/(styles.css|app.js|icon.png|icon-large.jpg)",
+      "source": "/(styles.css|app.js)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }
+        { "key": "Cache-Control", "value": "public, no-cache" }
+      ]
+    },
+    {
+      "source": "/(icon.png|icon-large.jpg)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     }
   ]
