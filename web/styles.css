@@ -260,13 +260,10 @@ h2 {
     display: none;
   }
 
-  /* Tight header on a phone — the rupee mark alone still says what the link is. */
-  .nav-support span {
-    display: none;
-  }
-
+  /* Keep the label on phones too, just tighter — the coffee cup alone isn't obvious. */
   .nav-support {
     padding: 8px 12px;
+    font-size: 13px;
   }
 
   .nav-support svg {
