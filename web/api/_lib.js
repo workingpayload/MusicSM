@@ -77,16 +77,18 @@ export async function recordDownload(assetName) {
 }
 
 /**
- * Turns GitHub's (resettable) summed download count into a lifetime figure that never regresses.
+ * Turns GitHub's (resettable) summed download count into the figure the page shows.
  *
- * When GitHub's total drops below what we last saw, an asset's counter was reset, so the old value
- * is folded into a persistent baseline; the number shown is then `baseline + currentGitHubTotal`.
- * Without a store it degrades gracefully to the raw GitHub total, and any error does the same — a
- * counter must never break the page. Note it can only preserve history from the moment it is first
- * deployed; a reset that already happened cannot be recovered (seed [BASELINE_KEY] by hand for that).
+ * A fixed offset from the `DOWNLOADS_BASELINE` env var is always added, so the number can be topped
+ * up with **no database at all** — set it in the Vercel dashboard and redeploy. On top of that, when
+ * a Redis store is configured the count also survives GitHub asset resets: if GitHub's total drops
+ * below what we last saw, the old value is folded into a persistent baseline. Any error or missing
+ * store degrades gracefully to `rawGitHubTotal + envOffset` — a counter must never break the page.
  */
 export async function reconcileGithubTotal(currentTotal) {
-  if (!kvConfigured) return currentTotal;
+  // Manual bump that needs no store: just an env var. e.g. DOWNLOADS_BASELINE=133 shows 133 more.
+  const envOffset = Number(process.env.DOWNLOADS_BASELINE || 0) || 0;
+  if (!kvConfigured) return currentTotal + envOffset;
   try {
     const out = await kvFetch('/pipeline', [
       ['GET', BASELINE_KEY],
@@ -107,9 +109,9 @@ export async function reconcileGithubTotal(currentTotal) {
     }
     if (writes.length) await kvFetch('/pipeline', writes);
 
-    return newBaseline + currentTotal;
+    return newBaseline + currentTotal + envOffset;
   } catch {
-    return currentTotal;
+    return currentTotal + envOffset;
   }
 }
 

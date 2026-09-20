@@ -15,8 +15,12 @@ export default async function handler(req, res) {
 
     // Counted across every release, including ones older than the current build, so the figure
     // is "how many people have installed MusicSM" rather than "how many took the newest build".
-    // Reconciled through a durable baseline so it never drops when GitHub resets an asset's count.
-    const githubDownloads = await reconcileGithubTotal(totalApkDownloads(releases));
+    // DOWNLOADS_OVERRIDE (env) forces an exact number to display; otherwise the real total is
+    // reconciled through a baseline (env offset + optional Redis) so it never drops on a reset.
+    const override = process.env.DOWNLOADS_OVERRIDE;
+    const githubDownloads = override != null && override !== ''
+      ? Math.max(0, Number(override) || 0)
+      : await reconcileGithubTotal(totalApkDownloads(releases));
     const release = latestStable(releases);
 
     if (!release) {
