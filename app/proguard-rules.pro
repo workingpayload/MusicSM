@@ -92,3 +92,14 @@
 # ---------------------------------------------------------------------------
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
+
+# ---------------------------------------------------------------------------
+# ML Kit code scanner (QR scan) + ZXing (QR generation) — reflection/native.
+# ---------------------------------------------------------------------------
+-keep class com.google.mlkit.** { *; }
+-dontwarn com.google.mlkit.**
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**
+
+# Rhino's optional javax.script service factory (the R8 warning during release build).
+-dontwarn javax.script.**

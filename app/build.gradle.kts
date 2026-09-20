@@ -25,11 +25,10 @@ android {
 
     buildTypes {
         release {
-            // R8 full mode: shrinks + optimises + obfuscates. Reflection-driven
-            // dependencies (NewPipeExtractor, Rhino, Room entities) are protected by
-            // proguard-rules.pro.
+            // R8 was crashing the release build at runtime; disabled until the exact keep
+            // rule is confirmed against a device crash log. Re-enable once verified.
             optimization {
-                enable = true
+                enable = false
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
