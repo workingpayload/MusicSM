@@ -5,7 +5,16 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +50,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,12 +59,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -74,7 +89,9 @@ import com.example.musicsm.ui.theme.ThemeMode
 import com.example.musicsm.ui.theme.isDarkEnoughForWhiteText
 import com.example.musicsm.ui.theme.SurfaceLow
 import java.util.Locale
+import kotlin.math.PI
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 @Composable
 fun SettingsScreen(
@@ -89,12 +106,36 @@ fun SettingsScreen(
     val storageBytes by viewModel.storageBytes.collectAsStateWithLifecycle()
     val recentSearchCount by viewModel.recentSearchCount.collectAsStateWithLifecycle()
     var confirmClearDownloads by remember { mutableStateOf(false) }
+    var showSupport by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val versionName = remember {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: "\u2013"
+    }
+
+    val backupBusy by viewModel.backupBusy.collectAsStateWithLifecycle()
+    // System file pickers: create a .json to write the backup, or open one to restore from.
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> uri?.let(viewModel::backupTo) }
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::restoreFrom) }
+
+    // Report the outcome of a backup/restore as a toast.
+    LaunchedEffect(Unit) {
+        viewModel.backupEvents.collect { event ->
+            val message = when (event) {
+                BackupEvent.BackupSuccess -> context.getString(R.string.backup_success)
+                BackupEvent.BackupFailure -> context.getString(R.string.backup_failed)
+                is BackupEvent.RestoreSuccess ->
+                    context.getString(R.string.restore_success, event.songs, event.playlists)
+                BackupEvent.RestoreFailure -> context.getString(R.string.restore_failed)
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
     }
 
     Column(modifier = modifier.fillMaxSize().background(AppBackground).statusBarsPadding()) {
@@ -113,6 +154,8 @@ fun SettingsScreen(
         }
 
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp + LocalBottomBarPadding.current)) {
+            item { BuyMeACoffeeCard(onClick = { showSupport = true }) }
+
             item { SettingsSection(stringResource(R.string.settings_section_playback)) }
             item {
                 SettingsSwitch(
@@ -285,6 +328,34 @@ fun SettingsScreen(
                 }
             }
 
+            item { SettingsSection(stringResource(R.string.settings_section_backup)) }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_backup_title),
+                    subtitle = if (backupBusy) {
+                        stringResource(R.string.backup_in_progress)
+                    } else {
+                        stringResource(R.string.settings_backup_subtitle)
+                    },
+                    onClick = if (backupBusy) null else {
+                        { backupLauncher.launch("musicsm-backup.json") }
+                    },
+                )
+            }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_restore_title),
+                    subtitle = if (backupBusy) {
+                        stringResource(R.string.restore_in_progress)
+                    } else {
+                        stringResource(R.string.settings_restore_subtitle)
+                    },
+                    onClick = if (backupBusy) null else {
+                        { restoreLauncher.launch(arrayOf("application/json", "*/*")) }
+                    },
+                )
+            }
+
             item { SettingsSection(stringResource(R.string.settings_section_about)) }
             item {
                 SettingsRow(
@@ -314,7 +385,170 @@ fun SettingsScreen(
             },
         )
     }
+
+    if (showSupport) {
+        SupportDialog(onDismiss = { showSupport = false })
+    }
 }
+
+/**
+ * The "Buy me a coffee" support card — the first thing in Settings. On entry the cup pops in with a
+ * bounce and a few steam wisps rise once (driven by [Animatable]s in `LaunchedEffect(Unit)`, so the
+ * animation plays exactly once each time you navigate here). Tapping opens the support link.
+ */
+@Composable
+private fun BuyMeACoffeeCard(onClick: () -> Unit) {
+    val cupScale = remember { Animatable(0.5f) }
+    val steam = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        cupScale.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        )
+    }
+    LaunchedEffect(Unit) {
+        steam.animateTo(targetValue = 1f, animationSpec = tween(durationMillis = 1600, easing = FastOutSlowInEasing))
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.horizontalGradient(listOf(Coral, Lavender)))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(46.dp), contentAlignment = Alignment.Center) {
+            // Steam: three wisps that rise and fade a single time as `steam` runs 0 -> 1.
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val s = steam.value
+                val fade = sin(s * PI).toFloat().coerceIn(0f, 1f)
+                if (fade > 0f) {
+                    listOf(-9f, 0f, 9f).forEachIndexed { i, dx ->
+                        drawCircle(
+                            color = Color.White.copy(alpha = fade * 0.5f),
+                            radius = 2.4.dp.toPx(),
+                            center = Offset(
+                                x = size.width / 2f + dx + sin(s * 6f + i) * 2f,
+                                y = size.height * 0.30f - s * size.height * 0.34f,
+                            ),
+                        )
+                    }
+                }
+            }
+            Icon(
+                imageVector = Icons.Filled.Coffee,
+                contentDescription = null,
+                tint = OnAccent,
+                modifier = Modifier
+                    .size(30.dp)
+                    .graphicsLayer { scaleX = cupScale.value; scaleY = cupScale.value },
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.settings_coffee_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = OnAccent,
+            )
+            Text(
+                stringResource(R.string.settings_coffee_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = OnAccent.copy(alpha = 0.85f),
+            )
+        }
+    }
+}
+
+/**
+ * The UPI "buy me a coffee" chooser, mirroring the Vercel landing page: pick an app (which
+ * deep-links straight into it) or copy the UPI ID. Each app has its own URL scheme; if the chosen
+ * app isn't installed we fall back to a generic `upi://` chooser so any UPI app can handle it.
+ */
+@Composable
+private fun SupportDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val params = "pa=${Uri.encode(UPI_VPA)}&pn=${Uri.encode(UPI_NAME)}&cu=INR"
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${stringResource(R.string.settings_coffee_title)} ☕") },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.coffee_lede),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OnDarkVariant,
+                )
+                Spacer(Modifier.height(16.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    UpiAppButton(stringResource(R.string.coffee_gpay)) { launchUpi(context, "tez://upi/pay?$params", params) }
+                    UpiAppButton(stringResource(R.string.coffee_phonepe)) { launchUpi(context, "phonepe://pay?$params", params) }
+                    UpiAppButton(stringResource(R.string.coffee_paytm)) { launchUpi(context, "paytmmp://pay?$params", params) }
+                    UpiAppButton(stringResource(R.string.coffee_any)) { launchUpi(context, "upi://pay?$params", params) }
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.coffee_upi_label), style = MaterialTheme.typography.labelMedium, color = Coral)
+                        Text(UPI_VPA, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = OnDark)
+                    }
+                    TextButton(onClick = {
+                        clipboard.setText(AnnotatedString(UPI_VPA))
+                        Toast.makeText(context, context.getString(R.string.coffee_copied), Toast.LENGTH_SHORT).show()
+                    }) { Text(stringResource(R.string.coffee_copy)) }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+        },
+    )
+}
+
+@Composable
+private fun UpiAppButton(label: String, onClick: () -> Unit) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelLarge,
+        color = OnDark,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(OverlayTint.copy(alpha = 0.10f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    )
+}
+
+/** Deep-links into [primary]'s UPI app; falls back to a generic `upi://` chooser, then a toast. */
+private fun launchUpi(context: Context, primary: String, params: String) {
+    val opened = runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(primary)))
+    }.isSuccess
+    if (opened) return
+    val chooser = runCatching {
+        context.startActivity(
+            Intent.createChooser(
+                Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay?$params")),
+                context.getString(R.string.coffee_pay_with),
+            ),
+        )
+    }.isSuccess
+    if (!chooser) {
+        Toast.makeText(context, context.getString(R.string.coffee_no_upi), Toast.LENGTH_LONG).show()
+    }
+}
+
+// Same payee as the Vercel landing page's support dialog.
+private const val UPI_VPA = "rs91963@pingpay"
+private const val UPI_NAME = "Raj"
 
 /** Opens the system per-app language screen (Android 13+). */
 private fun openLanguageSettings(context: Context) {

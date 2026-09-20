@@ -14,6 +14,7 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -76,6 +77,50 @@ class PlaybackService : MediaLibraryService() {
             }
             val song = player.currentMediaItem?.let(MediaItemMapper::toSong)
             nowPlayingPublisher.publish(song, player.isPlaying)
+        }
+    }
+
+    // Recovery state for the error listener below.
+    private var errorItemId: String? = null
+    private var errorRetries = 0
+
+    /**
+     * Recovers from load errors instead of dead-stopping on "loads and stops". A YouTube stream URL
+     * can expire or be rejected before its advertised lifetime (they're IP-bound and throttled),
+     * which surfaces as a source error. We drop the cached URL and re-prepare so a fresh one is
+     * resolved; after a couple of failures we skip the track so the queue never gets stuck.
+     */
+    private val errorListener = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) {
+            val player = mediaSession?.player ?: return
+            val currentId = player.currentMediaItem?.mediaId
+            if (currentId != errorItemId) {
+                errorItemId = currentId
+                errorRetries = 0
+            }
+            when {
+                currentId != null && errorRetries < MAX_STREAM_RETRIES -> {
+                    errorRetries++
+                    // The cached URL may be stale/rejected — drop it so prepare() re-resolves fresh.
+                    repository.invalidateStream(currentId)
+                    player.prepare()
+                }
+                player.hasNextMediaItem() -> {
+                    errorItemId = null
+                    errorRetries = 0
+                    player.seekToNext()
+                    player.prepare()
+                }
+                // Nothing else to try: leave the error surfaced rather than looping.
+            }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            // A clean READY means recovery worked (or a new track loaded): reset the retry budget.
+            if (playbackState == Player.STATE_READY) {
+                errorItemId = null
+                errorRetries = 0
+            }
         }
     }
 
@@ -167,6 +212,7 @@ class PlaybackService : MediaLibraryService() {
 
         player.addListener(widgetListener)
         player.addListener(preloadListener)
+        player.addListener(errorListener)
         crossfadeController = CrossfadeController(this, player, mediaSourceFactory, serviceScope)
 
         // "Skip silence" is a user setting; apply it live whenever it changes.
@@ -220,11 +266,17 @@ class PlaybackService : MediaLibraryService() {
             crossfadeController?.release()
             player.removeListener(widgetListener)
             player.removeListener(preloadListener)
+            player.removeListener(errorListener)
             player.release()
             release()
         }
         crossfadeController = null
         mediaSession = null
         super.onDestroy()
+    }
+
+    private companion object {
+        /** How many times to re-resolve a failing track before skipping past it. */
+        const val MAX_STREAM_RETRIES = 2
     }
 }

@@ -291,6 +291,38 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
     private fun JSONObject.optStringOrNull(name: String): String? =
         if (isNull(name)) null else optString(name).takeIf { it.isNotEmpty() }
 
+    // --- settings backup / restore -----------------------------------------
+
+    /**
+     * Serializes user-facing settings for a backup file. Deliberately excludes volatile session
+     * state (the saved queue, now-playing snapshot and pending sleep timer) — those are tied to a
+     * specific run and would be meaningless, or actively wrong, restored onto a fresh install.
+     */
+    fun exportSettings(): JSONObject {
+        val obj = JSONObject()
+        val all = prefs.all
+        BACKUP_KEYS.forEach { key -> all[key]?.let { obj.put(key, it) } }
+        return obj
+    }
+
+    /** Restores settings written by [exportSettings]. Unknown keys are ignored, so an older or
+     *  newer backup never crashes the restore. */
+    fun importSettings(obj: JSONObject) {
+        val editor = prefs.edit()
+        obj.keys().forEach { key ->
+            if (key !in BACKUP_KEYS) return@forEach
+            when (val value = obj.get(key)) {
+                is Boolean -> editor.putBoolean(key, value)
+                is String -> editor.putString(key, value)
+                // JSON collapses all numbers to Int/Long/Double after a file round-trip; only the
+                // playback speed is a float, everything else is an int.
+                is Number -> if (key == KEY_SPEED) editor.putFloat(key, value.toFloat())
+                    else editor.putInt(key, value.toInt())
+            }
+        }
+        editor.apply()
+    }
+
     // --- now-playing snapshot (widget + tile) ------------------------------
 
     /**
@@ -379,5 +411,17 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_QUEUE_POSITION = "queue_position"
         private const val KEY_NOW_PLAYING = "now_playing"
         private const val KEY_NOW_PLAYING_IS_PLAYING = "now_playing_is_playing"
+
+        /**
+         * The settings included in a backup. Session/volatile keys (queue, now-playing, sleep
+         * timer deadlines) are intentionally left out.
+         */
+        private val BACKUP_KEYS = setOf(
+            KEY_THEME_MODE, KEY_AMOLED, KEY_MATERIAL_YOU, KEY_ACCENT, KEY_ARTWORK_THEME,
+            KEY_RESTORE_QUEUE, KEY_SKIP_SILENCE, KEY_AUTOPLAY, KEY_SLEEP_FADE, KEY_SPEED,
+            KEY_CROSSFADE, KEY_FX_ENABLED, KEY_FX_PRESET, KEY_FX_BANDS, KEY_FX_BASS,
+            KEY_FX_VIRTUALIZER, KEY_FX_LOUDNESS, KEY_WIFI_ONLY, KEY_SORT_PLAYLIST,
+            KEY_SORT_DOWNLOADS, KEY_RECENT_SEARCHES,
+        )
     }
 }

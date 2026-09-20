@@ -26,6 +26,7 @@ object Routes {
     const val LOCAL_PLAYLIST = "local_playlist/{playlistId}"
     const val IMPORT = "import"
     const val DOWNLOADS = "downloads"
+    const val LOCAL = "local"
     const val SETTINGS = "settings"
     const val STATS = "stats"
     const val EQUALIZER = "equalizer"

@@ -35,6 +35,12 @@ interface MusicRepository {
 
     suspend fun resolveStream(songId: String): PlayableStream
 
+    /**
+     * Drops any cached stream URL for [songId] so the next [resolveStream] fetches a fresh one.
+     * Used to recover from a URL that expired or was rejected mid-playback before its cached TTL.
+     */
+    fun invalidateStream(songId: String)
+
     /** Static curated genre/mood tiles for the Search landing screen. */
     fun browseTiles(): List<BrowseTile>
 }

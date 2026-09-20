@@ -72,6 +72,10 @@ class MusicRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun invalidateStream(songId: String) {
+        streamCache.remove(songId)
+    }
+
     override fun browseTiles(): List<BrowseTile> = BROWSE_TILES
 
     companion object {

@@ -3,6 +3,7 @@ package com.example.musicsm.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.example.musicsm.data.local.dao.ArtistDao
+import com.example.musicsm.data.local.dao.BackupDao
 import com.example.musicsm.data.local.dao.DownloadDao
 import com.example.musicsm.data.local.dao.HistoryDao
 import com.example.musicsm.data.local.dao.LikeDao
@@ -40,4 +41,5 @@ abstract class MusicDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun statsDao(): StatsDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun backupDao(): BackupDao
 }

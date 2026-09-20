@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.musicsm.data.local.MusicDatabase
 import com.example.musicsm.data.local.dao.ArtistDao
+import com.example.musicsm.data.local.dao.BackupDao
 import com.example.musicsm.data.local.dao.DownloadDao
 import com.example.musicsm.data.local.dao.HistoryDao
 import com.example.musicsm.data.local.dao.LikeDao
@@ -171,4 +172,7 @@ object DatabaseModule {
 
     @Provides
     fun provideDownloadDao(db: MusicDatabase): DownloadDao = db.downloadDao()
+
+    @Provides
+    fun provideBackupDao(db: MusicDatabase): BackupDao = db.backupDao()
 }

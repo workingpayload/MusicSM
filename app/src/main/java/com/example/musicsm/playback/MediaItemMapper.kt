@@ -13,6 +13,16 @@ object MediaItemMapper {
 
     const val SCHEME = "ytstream"
 
+    /**
+     * Marks a [Song.id] as a device-local file rather than a YouTube videoId. The rest of the id is
+     * the file's real `content://` (or `file://`) URI, which [StreamUrlResolver] plays directly with
+     * no network round-trip. Format: `local:content://media/external/audio/media/123`.
+     */
+    const val LOCAL_PREFIX = "local:"
+
+    /** True when [id] refers to a device-local track scanned from MediaStore. */
+    fun isLocal(id: String): Boolean = id.startsWith(LOCAL_PREFIX)
+
     fun toMediaItem(song: Song): MediaItem {
         val metadata = MediaMetadata.Builder()
             .setTitle(song.title)

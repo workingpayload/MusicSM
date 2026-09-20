@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Settings
@@ -64,6 +65,7 @@ import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
 import com.example.musicsm.ui.theme.OnAccent
 import com.example.musicsm.ui.theme.StitchBackground
+import com.example.musicsm.ui.theme.Teal
 import com.example.musicsm.ui.theme.SurfaceLow
 
 @Composable
@@ -76,6 +78,7 @@ fun LibraryScreen(
     onOpenArtist: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenLocal: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -153,6 +156,7 @@ fun LibraryScreen(
                     .padding(vertical = 6.dp),
             ) {
                 CategoryRow(Icons.Filled.Favorite, Coral, stringResource(R.string.library_liked_songs), "${liked.size}", onOpenLiked)
+                CategoryRow(Icons.Filled.LibraryMusic, Teal, stringResource(R.string.library_local_files), "", onOpenLocal)
                 CategoryRow(Icons.Filled.BarChart, Lavender, stringResource(R.string.stats_open), "", onOpenStats)
             }
         }

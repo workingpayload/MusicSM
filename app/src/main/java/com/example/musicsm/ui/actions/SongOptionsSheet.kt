@@ -173,17 +173,11 @@ fun SongOptionsSheet(
                 ActionRow(
                     icon = Icons.Filled.Person,
                     label = stringResource(R.string.song_go_to_artist),
-                    enabled = song.artist.isNotBlank() && !resolving,
-                    trailing = { if (resolving) SmallSpinner() },
+                    enabled = song.artist.isNotBlank(),
                 ) {
-                    actionsViewModel.resolveArtist(song.artist) { id ->
-                        onDismiss()
-                        if (id != null) {
-                            navigator.openArtist(id)
-                        } else {
-                            Toast.makeText(context, context.getString(R.string.error_artist_not_found), Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    // The artist page loads by name, so open it directly — no pre-lookup, no wait.
+                    onDismiss()
+                    navigator.openArtist(song.artist)
                 }
                 if (!song.album.isNullOrBlank()) {
                     ActionRow(

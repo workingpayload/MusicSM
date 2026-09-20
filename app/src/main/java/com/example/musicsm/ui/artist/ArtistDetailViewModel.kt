@@ -65,7 +65,9 @@ class ArtistDetailViewModel @Inject constructor(
 
     private fun load() {
         viewModelScope.launch {
-            _state.value = ArtistDetailUiState(loading = true)
+            // Seed the name (the nav arg IS the artist name) so the screen shows who is loading
+            // straight away instead of a blank canvas while the page is fetched.
+            _state.value = ArtistDetailUiState(loading = true, name = artistId)
             runCatching { musicRepository.artist(artistId) }
                 .onSuccess { artist ->
                     _state.value = ArtistDetailUiState(

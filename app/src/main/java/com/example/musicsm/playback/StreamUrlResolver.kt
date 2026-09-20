@@ -23,6 +23,11 @@ class StreamUrlResolver(
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
         if (dataSpec.uri.scheme != MediaItemMapper.SCHEME) return dataSpec
         val videoId = dataSpec.uri.schemeSpecificPart
+        // Device-local files carry their real content:// URI inline — play it directly, no download
+        // lookup and no network resolution.
+        if (MediaItemMapper.isLocal(videoId)) {
+            return dataSpec.withUri(videoId.removePrefix(MediaItemMapper.LOCAL_PREFIX).toUri())
+        }
         return runBlocking {
             val local = downloadRepository.localPath(videoId)
             if (local != null) {

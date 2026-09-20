@@ -1,19 +1,28 @@
 package com.example.musicsm.ui.settings
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.musicsm.data.prefs.AppPreferences
+import com.example.musicsm.domain.repository.BackupRepository
 import com.example.musicsm.domain.repository.DownloadRepository
 import com.example.musicsm.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /** Everything the settings screen renders. */
@@ -41,10 +50,20 @@ data class AppearanceUiState(
     val accentPickerEnabled: Boolean get() = !materialYou && !themeFromArtwork
 }
 
+/** One-shot results of a backup/restore, surfaced to the UI as a toast. */
+sealed interface BackupEvent {
+    data object BackupSuccess : BackupEvent
+    data object BackupFailure : BackupEvent
+    data class RestoreSuccess(val songs: Int, val playlists: Int) : BackupEvent
+    data object RestoreFailure : BackupEvent
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val preferences: AppPreferences,
     private val downloadRepository: DownloadRepository,
+    private val backupRepository: BackupRepository,
 ) : ViewModel() {
 
     private val playbackToggles = combine(
@@ -82,6 +101,13 @@ class SettingsViewModel @Inject constructor(
 
     private val _storageBytes = MutableStateFlow(0L)
     val storageBytes: StateFlow<Long> = _storageBytes.asStateFlow()
+
+    /** True while a backup/restore is running, to disable the buttons and show progress. */
+    private val _backupBusy = MutableStateFlow(false)
+    val backupBusy: StateFlow<Boolean> = _backupBusy.asStateFlow()
+
+    private val _backupEvents = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 1)
+    val backupEvents: SharedFlow<BackupEvent> = _backupEvents.asSharedFlow()
 
     val recentSearchCount: StateFlow<Int> = preferences.recentSearches
         .map { it.size }
@@ -135,6 +161,44 @@ class SettingsViewModel @Inject constructor(
     fun deleteAllDownloads() {
         viewModelScope.launch {
             downloadRepository.deleteAll()
+            refreshStorage()
+        }
+    }
+
+    /** Exports the whole library + settings to the user-chosen [uri]. */
+    fun backupTo(uri: Uri) {
+        if (_backupBusy.value) return
+        viewModelScope.launch {
+            _backupBusy.value = true
+            val event = runCatching {
+                val json = backupRepository.export()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(json.toByteArray())
+                    } ?: error("Could not open the destination file")
+                }
+                BackupEvent.BackupSuccess
+            }.getOrElse { BackupEvent.BackupFailure }
+            _backupBusy.value = false
+            _backupEvents.emit(event)
+        }
+    }
+
+    /** Reads a backup from [uri] and merges it into the current library. */
+    fun restoreFrom(uri: Uri) {
+        if (_backupBusy.value) return
+        viewModelScope.launch {
+            _backupBusy.value = true
+            val event = runCatching {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        ?: error("Could not open the backup file")
+                }
+                val summary = backupRepository.import(text)
+                BackupEvent.RestoreSuccess(summary.songs, summary.playlists)
+            }.getOrElse { BackupEvent.RestoreFailure }
+            _backupBusy.value = false
+            _backupEvents.emit(event)
             refreshStorage()
         }
     }

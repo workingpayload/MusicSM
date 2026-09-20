@@ -1,14 +1,18 @@
 package com.example.musicsm.di
 
+import com.example.musicsm.data.repository.BackupRepositoryImpl
 import com.example.musicsm.data.repository.DownloadRepositoryImpl
 import com.example.musicsm.data.repository.LibraryRepositoryImpl
+import com.example.musicsm.data.repository.LocalMusicRepositoryImpl
 import com.example.musicsm.data.repository.LyricsRepositoryImpl
 import com.example.musicsm.data.repository.MusicRepositoryImpl
 import com.example.musicsm.data.repository.SpotifyImportRepositoryImpl
 import com.example.musicsm.data.repository.StatsRepositoryImpl
 import com.example.musicsm.data.source.youtube.NewPipeMusicSource
+import com.example.musicsm.domain.repository.BackupRepository
 import com.example.musicsm.domain.repository.DownloadRepository
 import com.example.musicsm.domain.repository.LibraryRepository
+import com.example.musicsm.domain.repository.LocalMusicRepository
 import com.example.musicsm.domain.repository.LyricsRepository
 import com.example.musicsm.domain.repository.MusicRepository
 import com.example.musicsm.domain.repository.PlaylistImportRepository
@@ -51,4 +55,12 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindStatsRepository(impl: StatsRepositoryImpl): StatsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLocalMusicRepository(impl: LocalMusicRepositoryImpl): LocalMusicRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupRepository(impl: BackupRepositoryImpl): BackupRepository
 }

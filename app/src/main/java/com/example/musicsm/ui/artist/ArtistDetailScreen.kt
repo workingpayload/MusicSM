@@ -133,8 +133,21 @@ fun ArtistDetailScreen(
             }
 
             when {
-                ui.loading -> Box(Modifier.fillMaxSize()) {
-                    CircularProgressIndicator(color = Coral, modifier = Modifier.align(Alignment.Center))
+                ui.loading -> Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    if (ui.name.isNotBlank()) {
+                        Text(
+                            text = ui.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Spacer(Modifier.height(20.dp))
+                    }
+                    CircularProgressIndicator(color = Coral)
                 }
 
                 ui.error != null -> Box(Modifier.fillMaxSize()) {

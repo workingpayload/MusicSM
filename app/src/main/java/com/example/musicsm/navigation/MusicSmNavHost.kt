@@ -14,6 +14,7 @@ import com.example.musicsm.ui.artist.ArtistDetailScreen
 import com.example.musicsm.ui.home.HomeScreen
 import com.example.musicsm.ui.importer.ImportPlaylistScreen
 import com.example.musicsm.ui.library.LibraryScreen
+import com.example.musicsm.ui.library.LocalMusicScreen
 import com.example.musicsm.ui.library.PlaylistDetailScreen
 import com.example.musicsm.ui.player.DownloadsScreen
 import com.example.musicsm.ui.player.PlayerViewModel
@@ -71,6 +72,19 @@ fun MusicSmNavHost(
                 onOpenArtist = { navController.navigate(Routes.artist(it)) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenStats = { navController.navigate(Routes.STATS) },
+                onOpenLocal = { navController.navigate(Routes.LOCAL) },
+            )
+        }
+        composable(
+            route = Routes.LOCAL,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            LocalMusicScreen(
+                playerViewModel = playerViewModel,
+                onBack = { navController.popBackStack() },
             )
         }
         composable(

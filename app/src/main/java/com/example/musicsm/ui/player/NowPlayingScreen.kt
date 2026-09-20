@@ -123,22 +123,18 @@ fun NowPlayingScreen(
     val song = state.currentSong
     val context = LocalContext.current
     val navigator = LocalSongNavigator.current
-    val resolvingNav by actionsViewModel.resolving.collectAsStateWithLifecycle()
     val sleepTimerState by viewModel.sleepTimer.collectAsStateWithLifecycle()
     var showOptions by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
 
-    /** Look up the artist page for the playing track and open it. */
+    /**
+     * Open the artist page. The page is loaded by artist name (the name IS the id used by the
+     * repository), so navigate straight there instead of doing a separate lookup first — that
+     * removes a whole network round-trip and the blank wait before the screen appears.
+     */
     val openArtist = {
-        if (song != null) {
-            actionsViewModel.resolveArtist(song.artist) { id ->
-                if (id != null) {
-                    navigator.openArtist(id)
-                } else {
-                    Toast.makeText(context, context.getString(R.string.error_artist_not_found), Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+        song?.artist?.takeIf { it.isNotBlank() }?.let { navigator.openArtist(it) }
+        Unit
     }
 
     val isDownloaded by remember(song?.id) {
@@ -294,7 +290,7 @@ fun NowPlayingScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.clickable(
-                        enabled = song != null && song.artist.isNotBlank() && !resolvingNav,
+                        enabled = song != null && song.artist.isNotBlank(),
                         onClick = openArtist,
                     ),
                 )

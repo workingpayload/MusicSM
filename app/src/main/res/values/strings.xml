@@ -358,4 +358,41 @@
     <string name="ambient_exit">Exit ambient mode</string>
     <string name="ambient_nothing_playing">Nothing playing</string>
 
+    <!-- Local music -->
+    <string name="library_local_files">Local files</string>
+    <string name="local_music_title">Local files</string>
+    <string name="local_music_subtitle">Music stored on this device</string>
+    <string name="local_music_empty">No music found on this device</string>
+    <string name="local_music_permission_rationale">Allow access to your audio files to play music stored on this device.</string>
+    <string name="local_music_permission_grant">Grant access</string>
+    <string name="local_music_shuffle">Shuffle</string>
+    <string name="local_music_count">%1$d tracks</string>
+
+    <!-- Buy me a coffee -->
+    <string name="settings_coffee_title">Buy me a coffee</string>
+    <string name="settings_coffee_subtitle">Enjoying MusicSM? Support development ☕</string>
+    <string name="coffee_lede">If MusicSM earned a spot on your phone, send a coffee over UPI — pick your app.</string>
+    <string name="coffee_upi_label">UPI ID</string>
+    <string name="coffee_copy">Copy</string>
+    <string name="coffee_copied">UPI ID copied</string>
+    <string name="coffee_pay_with">Pay with</string>
+    <string name="coffee_no_upi">No UPI app found</string>
+    <string name="coffee_gpay">Google Pay</string>
+    <string name="coffee_phonepe">PhonePe</string>
+    <string name="coffee_paytm">Paytm</string>
+    <string name="coffee_any">Any UPI app</string>
+
+    <!-- Backup &amp; restore -->
+    <string name="settings_section_backup">Backup &amp; restore</string>
+    <string name="settings_backup_title">Back up library</string>
+    <string name="settings_backup_subtitle">Save liked songs, playlists, stats &amp; settings to a file</string>
+    <string name="settings_restore_title">Restore from backup</string>
+    <string name="settings_restore_subtitle">Merge a backup file into your library</string>
+    <string name="backup_in_progress">Backing up…</string>
+    <string name="restore_in_progress">Restoring…</string>
+    <string name="backup_success">Backup saved</string>
+    <string name="backup_failed">Backup failed</string>
+    <string name="restore_success">Restored %1$d songs and %2$d playlists</string>
+    <string name="restore_failed">Couldn\'t restore: not a valid MusicSM backup</string>
+
 </resources>
