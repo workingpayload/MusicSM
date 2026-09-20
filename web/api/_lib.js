@@ -18,6 +18,13 @@ const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 export const REPO = process.env.GITHUB_REPO || 'workingpayload/MusicSM';
 export const COUNTER_KEY = 'musicsm:downloads:total';
 
+// GitHub resets an asset's `download_count` to 0 whenever the APK is deleted and re-uploaded, or a
+// release is recreated — so a naive sum across releases drops on every such publish. These two keys
+// let us keep a durable lifetime figure that never goes backwards: BASELINE is the running sum of
+// every GitHub total that was later wiped, and LAST_SEEN is the most recent GitHub total observed.
+export const BASELINE_KEY = 'musicsm:downloads:baseline';
+export const LAST_SEEN_KEY = 'musicsm:downloads:githubseen';
+
 /**
  * Whether a Redis store is wired up.
  *
@@ -66,6 +73,43 @@ export async function recordDownload(assetName) {
     return Number(out?.[0]?.result ?? 0);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Turns GitHub's (resettable) summed download count into a lifetime figure that never regresses.
+ *
+ * When GitHub's total drops below what we last saw, an asset's counter was reset, so the old value
+ * is folded into a persistent baseline; the number shown is then `baseline + currentGitHubTotal`.
+ * Without a store it degrades gracefully to the raw GitHub total, and any error does the same — a
+ * counter must never break the page. Note it can only preserve history from the moment it is first
+ * deployed; a reset that already happened cannot be recovered (seed [BASELINE_KEY] by hand for that).
+ */
+export async function reconcileGithubTotal(currentTotal) {
+  if (!kvConfigured) return currentTotal;
+  try {
+    const out = await kvFetch('/pipeline', [
+      ['GET', BASELINE_KEY],
+      ['GET', LAST_SEEN_KEY],
+    ]);
+    const baseline = Number(out?.[0]?.result ?? 0) || 0;
+    const lastSeen = Number(out?.[1]?.result ?? 0) || 0;
+
+    const writes = [];
+    let newBaseline = baseline;
+    if (currentTotal < lastSeen) {
+      // A reset happened since last time: preserve the count that GitHub just threw away.
+      newBaseline = baseline + lastSeen;
+      writes.push(['SET', BASELINE_KEY, String(newBaseline)]);
+    }
+    if (currentTotal !== lastSeen) {
+      writes.push(['SET', LAST_SEEN_KEY, String(currentTotal)]);
+    }
+    if (writes.length) await kvFetch('/pipeline', writes);
+
+    return newBaseline + currentTotal;
+  } catch {
+    return currentTotal;
   }
 }
 

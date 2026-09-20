@@ -1,4 +1,4 @@
-import { REPO, apkAssets, fetchReleases, latestStable, totalApkDownloads } from './_lib.js';
+import { REPO, apkAssets, fetchReleases, latestStable, reconcileGithubTotal, totalApkDownloads } from './_lib.js';
 
 /**
  * Latest release metadata plus lifetime download totals.
@@ -15,7 +15,8 @@ export default async function handler(req, res) {
 
     // Counted across every release, including ones older than the current build, so the figure
     // is "how many people have installed MusicSM" rather than "how many took the newest build".
-    const githubDownloads = totalApkDownloads(releases);
+    // Reconciled through a durable baseline so it never drops when GitHub resets an asset's count.
+    const githubDownloads = await reconcileGithubTotal(totalApkDownloads(releases));
     const release = latestStable(releases);
 
     if (!release) {
