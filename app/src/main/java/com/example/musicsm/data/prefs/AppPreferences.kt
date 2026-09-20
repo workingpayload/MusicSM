@@ -228,6 +228,13 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
         get() = prefs.getBoolean(KEY_SLEEP_END_OF_TRACK, false)
         set(value) = prefs.edit().putBoolean(KEY_SLEEP_END_OF_TRACK, value).apply()
 
+    // --- in-app updates ----------------------------------------------------
+
+    /** The update version the user tapped "Later" on, so the launch popup doesn't nag every time. */
+    var dismissedUpdateVersion: String?
+        get() = prefs.getString(KEY_DISMISSED_UPDATE, null)
+        set(value) = prefs.edit().putString(KEY_DISMISSED_UPDATE, value).apply()
+
     // --- queue snapshot ----------------------------------------------------
 
     fun saveQueue(songs: List<Song>, index: Int, positionMs: Long) {
@@ -411,6 +418,7 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_QUEUE_POSITION = "queue_position"
         private const val KEY_NOW_PLAYING = "now_playing"
         private const val KEY_NOW_PLAYING_IS_PLAYING = "now_playing_is_playing"
+        private const val KEY_DISMISSED_UPDATE = "dismissed_update_version"
 
         /**
          * The settings included in a backup. Session/volatile keys (queue, now-playing, sleep

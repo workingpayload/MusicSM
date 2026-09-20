@@ -53,6 +53,9 @@ import com.example.musicsm.ui.player.DownloadStatusBar
 import com.example.musicsm.ui.player.AmbientScreen
 import com.example.musicsm.ui.player.ExpandedPlayer
 import com.example.musicsm.ui.player.PlayerViewModel
+import com.example.musicsm.ui.update.UpdateDialog
+import com.example.musicsm.ui.update.UpdateState
+import com.example.musicsm.ui.update.UpdateViewModel
 import com.example.musicsm.ui.share.rememberQrScanner
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.GlassFillStrong
@@ -73,7 +76,13 @@ fun MusicSmRoot(
     val navController = rememberNavController()
     val playerViewModel: PlayerViewModel = hiltViewModel()
     val intentViewModel: AppIntentViewModel = hiltViewModel()
+    val updateViewModel: UpdateViewModel = hiltViewModel()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
+    val updateState by updateViewModel.state.collectAsStateWithLifecycle()
+
+    // Quietly look for a newer GitHub release once per launch; the popup only shows a version the
+    // user hasn't already tapped "Later" on.
+    LaunchedEffect(Unit) { updateViewModel.checkOnLaunch() }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -305,6 +314,22 @@ fun MusicSmRoot(
                         viewModel = playerViewModel,
                         onExit = { ambientMode = false },
                         modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                // "A new version is available" popup (once per launch, per non-dismissed version).
+                (updateState as? UpdateState.Available)?.let { available ->
+                    val appVersion = remember {
+                        runCatching {
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                        }.getOrNull().orEmpty()
+                    }
+                    UpdateDialog(
+                        info = available.info,
+                        currentVersion = appVersion,
+                        onUpdate = { updateViewModel.install(available.info) },
+                        onLater = { updateViewModel.dismissVersion(available.info) },
+                        onDismiss = { updateViewModel.dismissVersion(available.info) },
                     )
                 }
             }

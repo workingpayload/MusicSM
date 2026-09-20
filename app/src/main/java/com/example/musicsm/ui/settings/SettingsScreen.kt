@@ -77,6 +77,9 @@ import com.example.musicsm.R
 import com.example.musicsm.data.prefs.AppPreferences
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.currentLocale
+import com.example.musicsm.ui.update.UpdateDialog
+import com.example.musicsm.ui.update.UpdateState
+import com.example.musicsm.ui.update.UpdateViewModel
 import com.example.musicsm.ui.theme.AccentPresets
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
@@ -99,9 +102,11 @@ fun SettingsScreen(
     onOpenEqualizer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    updateViewModel: UpdateViewModel = hiltViewModel(),
 ) {
     BackHandler { onBack() }
     val ui by viewModel.state.collectAsStateWithLifecycle()
+    val updateState by updateViewModel.state.collectAsStateWithLifecycle()
     val downloadCount by viewModel.downloadCount.collectAsStateWithLifecycle()
     val storageBytes by viewModel.storageBytes.collectAsStateWithLifecycle()
     val recentSearchCount by viewModel.recentSearchCount.collectAsStateWithLifecycle()
@@ -135,6 +140,21 @@ fun SettingsScreen(
                 BackupEvent.RestoreFailure -> context.getString(R.string.restore_failed)
             }
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Toast the result of a manual update check; the "available" case shows a dialog instead.
+    LaunchedEffect(updateState) {
+        when (updateState) {
+            UpdateState.UpToDate -> {
+                Toast.makeText(context, context.getString(R.string.update_up_to_date), Toast.LENGTH_SHORT).show()
+                updateViewModel.clear()
+            }
+            UpdateState.Failed -> {
+                Toast.makeText(context, context.getString(R.string.update_failed), Toast.LENGTH_SHORT).show()
+                updateViewModel.clear()
+            }
+            else -> Unit
         }
     }
 
@@ -359,6 +379,19 @@ fun SettingsScreen(
             item { SettingsSection(stringResource(R.string.settings_section_about)) }
             item {
                 SettingsRow(
+                    title = stringResource(R.string.settings_check_updates_title),
+                    subtitle = if (updateState is UpdateState.Checking) {
+                        stringResource(R.string.update_checking)
+                    } else {
+                        stringResource(R.string.settings_check_updates_subtitle, versionName)
+                    },
+                    onClick = if (updateState is UpdateState.Checking) null else {
+                        { updateViewModel.checkNow() }
+                    },
+                )
+            }
+            item {
+                SettingsRow(
                     title = stringResource(R.string.app_name),
                     subtitle = stringResource(R.string.settings_version, versionName),
                     onClick = null,
@@ -388,6 +421,16 @@ fun SettingsScreen(
 
     if (showSupport) {
         SupportDialog(onDismiss = { showSupport = false })
+    }
+
+    (updateState as? UpdateState.Available)?.let { available ->
+        UpdateDialog(
+            info = available.info,
+            currentVersion = versionName,
+            onUpdate = { updateViewModel.install(available.info) },
+            onLater = { updateViewModel.clear() },
+            onDismiss = { updateViewModel.clear() },
+        )
     }
 }
 
