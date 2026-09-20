@@ -425,15 +425,24 @@ h1 .accent {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
   width: min(100%, 460px);
+  /*
+   * Reserved height for the meter. The tile is square and fills the full width, so without this
+   * the meter would have nowhere to sit but on top of the artwork.
+   */
+  padding-bottom: 76px;
 }
 
 /* The sleeve bloom from ambient mode: a glow in the artwork's own colour, never a black shadow. */
 .hero-art::before {
   content: "";
   position: absolute;
-  inset: -14%;
+  /*
+   * Anchored to the square tile rather than stretched over the whole box, which now includes the
+   * reserved strip beneath it. `breathe` animates transform here, so this cannot use a translate.
+   */
+  inset: -14% -14% auto -14%;
+  aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 82, 94, 0.45), rgba(255, 82, 94, 0) 66%);
   filter: blur(26px);
@@ -442,7 +451,8 @@ h1 .accent {
 
 .hero-art img {
   position: relative;
-  width: 92%;
+  display: block;
+  width: 100%;
   /*
    * The width/height attributes on the <img> are presentational hints that map to CSS. Setting
    * only `width` here would leave the height hint in force and stretch the square icon, so the
@@ -463,7 +473,7 @@ h1 .accent {
 /* Decorative level meter — it is an ornament, not a readout of anything. */
 .meter {
   position: absolute;
-  bottom: 4%;
+  bottom: 0;
   display: flex;
   align-items: flex-end;
   gap: 5px;
