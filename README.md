@@ -1,6 +1,6 @@
 # MusicSM
 
-**v2.0.1** — A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans). Also plays music stored on your device.
+**v2.0.2** — A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans). Also plays music stored on your device.
 
 > **Not shippable to Google Play.** MusicSM streams from YouTube and depends on GPLv3 `NewPipeExtractor`; it is a personal / educational project, not a distributable product.
 
@@ -36,6 +36,8 @@
 **Now Playing** — blurred artwork backdrop, breathing album art, hue‑cycling frosted‑glass play/pause button, animated multi‑hue seek bar, glassy album‑tinted volume, queue, and live lyrics.
 
 **Support** — a "Buy me a coffee" option at the top of Settings pays over **UPI** (Google Pay / PhonePe / Paytm / any UPI app) or copies the UPI ID.
+
+**In-app updates** — checks GitHub for a newer release on launch (and from **Settings → Check for updates**), then downloads the APK and opens the installer — no need to visit the releases page.
 
 ## Screenshots
 
@@ -76,6 +78,7 @@ domain/        Pure Kotlin models + repository/source interfaces (+ recommend, m
 data/          Impls — only layer importing NewPipe / Room / Spotify / prefs
 playback/      Media3 bridge (service, controller, resolver, crossfade, effects, sleep timer)
 download/      Foreground download service
+update/        In-app updater (checks GitHub Releases, installs the APK)
 di/            Hilt modules (data, database, network, media cache)
 widget/ tile/ wear/   Home‑screen widget · Quick Settings tile · Wear OS bridge
 ```

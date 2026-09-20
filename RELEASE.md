@@ -1,5 +1,19 @@
 # Release notes
 
+## v2.0.2 — 2026-09-20
+
+A small follow-up to v2.0.1.
+
+### New
+- **In-app updates** — MusicSM now checks GitHub for a newer release on launch and shows an "Update available" popup with the release notes; you can also **Check for updates** any time from Settings. Updating downloads the new APK and opens the installer, so you no longer have to visit the releases page by hand.
+
+### Improvements
+- The **Buy me a coffee** popup now has explicit **Copy** (UPI ID) and **Close** buttons.
+
+### Notes
+- In-app updating only applies from this version onward (the installed build has to contain the updater), and each new version must be published as a GitHub release with the APK attached and a higher version tag.
+- No database change. Still not Play-shippable — GPLv3 NewPipeExtractor + YouTube ToS; personal / educational use.
+
 ## v2.0.1 — 2026-09-20
 
 A stability, performance, and reach patch on top of v2.0.0.
