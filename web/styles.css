@@ -234,9 +234,44 @@ h2 {
   background: var(--glass-fill);
 }
 
+/* The one nav item that asks for something, so it gets the coral rather than the muted grey. */
+.nav-support {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--coral-light);
+  border: 1px solid rgba(255, 82, 94, 0.3);
+  background: rgba(255, 82, 94, 0.09);
+}
+
+.nav-support svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.nav-support:hover {
+  color: #fff;
+  background: rgba(255, 82, 94, 0.2);
+}
+
 @media (max-width: 620px) {
   .nav-link.is-optional {
     display: none;
+  }
+
+  /* Tight header on a phone — the rupee mark alone still says what the link is. */
+  .nav-support span {
+    display: none;
+  }
+
+  .nav-support {
+    padding: 8px 12px;
+  }
+
+  .nav-support svg {
+    width: 17px;
+    height: 17px;
   }
 }
 
@@ -654,6 +689,128 @@ h1 .accent {
   color: var(--muted);
 }
 
+/* -------------------------------------------------------------- support -- */
+
+.support {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: clamp(28px, 5vw, 60px);
+  align-items: center;
+  padding: clamp(26px, 4vw, 44px);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-stroke);
+  background: var(--glass-fill);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+.support h2,
+.support .section-lede {
+  margin-left: 0;
+  margin-right: 0;
+  text-align: left;
+  max-width: 52ch;
+}
+
+.support-btn {
+  margin-top: 26px;
+}
+
+/*
+ * The QR is the only part of this page that must stay legible as an image rather than as styling,
+ * so it keeps a white quiet zone instead of inheriting the glass treatment. Scanners need the
+ * contrast and the margin.
+ */
+.support-qr {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.support-qr img {
+  display: block;
+  width: clamp(168px, 22vw, 220px);
+  height: auto;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.support-qr figcaption {
+  font-size: 0.8rem;
+  color: var(--faint);
+}
+
+.upi-id {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 10px 10px 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-stroke);
+  background: var(--glass-fill-strong);
+}
+
+.upi-id-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.upi-id code {
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  font-size: 0.95rem;
+  color: var(--on-surface);
+  overflow-wrap: anywhere;
+}
+
+.copy-btn {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-stroke);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.copy-btn.is-done {
+  background: var(--teal);
+  border-color: transparent;
+  color: #08131a;
+}
+
+@media (max-width: 820px) {
+  .support {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .support h2,
+  .support .section-lede {
+    text-align: center;
+  }
+
+  /* The QR reads as the fallback on desktop, so on a phone it belongs after the button. */
+  .support-qr {
+    order: 2;
+  }
+}
+
 /* --------------------------------------------------------------- footer -- */
 
 footer {
@@ -715,4 +872,73 @@ footer a:hover {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ---- Support chooser dialog ---- */
+.support-dialog {
+  border: none;
+  padding: 0;
+  border-radius: 22px;
+  background: transparent;
+  color: var(--text, #e3e1e9);
+  max-width: 420px;
+  width: calc(100% - 32px);
+}
+.support-dialog::backdrop {
+  background: rgba(6, 6, 10, 0.6);
+  backdrop-filter: blur(6px);
+}
+.support-dialog-inner {
+  position: relative;
+  background: var(--surface, #1e1f25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  padding: 28px 26px 22px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+.support-dialog-x {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+.support-dialog-x:hover { color: #fff; }
+.support-dialog h2 { margin: 0 0 6px; font-size: 24px; }
+.support-dialog-lede {
+  margin: 0 0 18px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 15px;
+}
+.support-apps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.app-btn {
+  padding: 16px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #e3e1e9);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.app-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+}
+.app-btn-any {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-dark) 100%);
+  border-color: transparent;
+  color: #fff;
 }

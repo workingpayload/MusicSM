@@ -18,7 +18,7 @@
       ]
     },
     {
-      "source": "/(icon.png|icon-large.jpg)",
+      "source": "/(icon.png|icon-large.jpg|upi-qr.svg)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]

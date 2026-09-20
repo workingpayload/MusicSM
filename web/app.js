@@ -194,6 +194,83 @@ function onDownload() {
   setTimeout(loadStats, 2500);
 }
 
+/**
+ * Support: the "Support me" tab opens a chooser dialog that asks which UPI app to pay with, then
+ * deep-links into it. Each app has its own URL scheme; "Any UPI app" uses the generic `upi://`
+ * intent so Android shows its own picker.
+ */
+function setupSupport() {
+  const dialog = el("support-dialog");
+  if (!dialog) return;
+
+  const vpaEl = el("upi-vpa");
+  const copyButton = el("copy-upi");
+  const closeButton = el("support-close");
+  const id = (dialog.dataset.vpa || vpaEl?.textContent || "").trim();
+  const name = dialog.dataset.name || "";
+
+  // pa/pn/cu build the standard UPI payment request; only the scheme differs per app.
+  const params = `pa=${encodeURIComponent(id)}&pn=${encodeURIComponent(name)}&cu=INR`;
+  const schemes = {
+    gpay: `tez://upi/pay?${params}`,
+    phonepe: `phonepe://pay?${params}`,
+    paytm: `paytmmp://pay?${params}`,
+    any: `upi://pay?${params}`,
+  };
+
+  const openDialog = (event) => {
+    if (event) event.preventDefault();
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  };
+  const closeDialog = () => {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.removeAttribute("open");
+  };
+
+  // Any link pointing at #support (nav tab + footer) opens the chooser instead of scrolling.
+  document.querySelectorAll('a[href="#support"]').forEach((link) => {
+    link.addEventListener("click", openDialog);
+  });
+
+  closeButton?.addEventListener("click", closeDialog);
+  // Click on the backdrop (outside the inner card) closes it.
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeDialog();
+  });
+
+  dialog.querySelectorAll(".app-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = schemes[btn.dataset.app] || schemes.any;
+      window.location.href = url;
+    });
+  });
+
+  if (copyButton && vpaEl) {
+    copyButton.addEventListener("click", async () => {
+      let ok = true;
+      try {
+        await navigator.clipboard.writeText(id);
+      } catch {
+        ok = false;
+        const range = document.createRange();
+        range.selectNodeContents(vpaEl);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      const original = copyButton.textContent;
+      copyButton.textContent = ok ? "Copied" : "Select it";
+      copyButton.classList.add("is-done");
+      setTimeout(() => {
+        copyButton.textContent = original;
+        copyButton.classList.remove("is-done");
+      }, 1800);
+    });
+  }
+}
+
 loadRelease();
 loadStats();
 watchDownloads();
+setupSupport();
