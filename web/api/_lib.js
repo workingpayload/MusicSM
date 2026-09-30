@@ -205,6 +205,34 @@ export function totalDesktopDownloads(releases) {
   return sumDownloads(releases, desktopAssets);
 }
 
+/** The installers each desktop download button offers. */
+const PLATFORM_INSTALLER = { windows: /\.(msi|exe)$/i, mac: /\.(dmg|pkg)$/i };
+
+export const isDesktopPlatform = (platform) => Object.hasOwn(PLATFORM_INSTALLER, platform);
+
+/** A release's installers for one platform (`windows` or `mac`). */
+export function platformAssets(release, platform) {
+  const pattern = PLATFORM_INSTALLER[platform];
+  return pattern ? (release?.assets ?? []).filter((a) => pattern.test(a.name)) : [];
+}
+
+/**
+ * The installer to offer for a platform: from the newest stable release that has one, so a release
+ * that shipped without, say, the Mac build doesn't leave that button with nothing to download.
+ */
+export function newestPlatformAsset(releases, platform) {
+  for (const release of releases) {
+    if (release.draft || release.prerelease) continue;
+    const asset = platformAssets(release, platform)[0];
+    if (asset) return { release, asset };
+  }
+  return null;
+}
+
+/** Where the desktop buttons go when there's no installer to hand out (yet). */
+export const desktopReleasesUrl = () =>
+  DESKTOP_REPO ? `https://github.com/${DESKTOP_REPO}/releases` : null;
+
 function sumDownloads(releases, assetsOf) {
   return releases.reduce(
     (total, release) => total + assetsOf(release).reduce((n, a) => n + (a.download_count || 0), 0),
@@ -213,16 +241,17 @@ function sumDownloads(releases, assetsOf) {
 }
 
 /**
- * MusicSM Desktop's lifetime downloads, reset-proofed like the APK total: 0 when no desktop repo is
- * configured or it has no releases yet (GitHub 404s a repo that doesn't exist), and `null` when it
- * can't be read right now. Never throws — the Android figure must not depend on the desktop repo.
+ * MusicSM Desktop's releases and lifetime downloads, the count reset-proofed like the APK total.
+ * `downloads` is 0 when no desktop repo is configured or it has no releases yet (GitHub 404s a repo
+ * that doesn't exist), and `null` when it can't be read right now. Never throws — the Android side
+ * of the page must not depend on the desktop repo.
  */
-export async function desktopDownloads() {
-  if (!DESKTOP_REPO) return 0;
+export async function loadDesktop() {
+  if (!DESKTOP_REPO) return { downloads: 0, releases: [] };
   try {
     const releases = await fetchReleases(DESKTOP_REPO);
-    return await reconcileDesktopTotal(totalDesktopDownloads(releases));
+    return { downloads: await reconcileDesktopTotal(totalDesktopDownloads(releases)), releases };
   } catch {
-    return null;
+    return { downloads: null, releases: [] };
   }
 }

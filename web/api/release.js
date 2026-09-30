@@ -1,9 +1,11 @@
 import {
   REPO,
   apkAssets,
-  desktopDownloads,
+  desktopReleasesUrl,
   fetchReleases,
   latestStable,
+  loadDesktop,
+  newestPlatformAsset,
   reconcileGithubTotal,
   totalApkDownloads,
 } from './_lib.js';
@@ -18,17 +20,12 @@ import {
  */
 export default async function handler(req, res) {
   try {
-    // DOWNLOADS_OVERRIDE (env) forces an exact number to display, so the desktop repo isn't read.
-    const override = process.env.DOWNLOADS_OVERRIDE;
-    const overridden = override != null && override !== '';
-    const [releases, desktop] = await Promise.all([
-      fetchReleases(),
-      overridden ? null : desktopDownloads(),
-    ]);
-    // A desktop count that couldn't be read leaves the total short: don't hold that for long.
+    const [releases, desktop] = await Promise.all([fetchReleases(), loadDesktop()]);
+    // An unreadable desktop repo leaves the total short and the desktop buttons undescribed:
+    // don't hold that for long.
     res.setHeader(
       'Cache-Control',
-      !overridden && desktop === null
+      desktop.downloads === null
         ? 's-maxage=60, stale-while-revalidate=300'
         : 's-maxage=300, stale-while-revalidate=86400',
     );
@@ -37,27 +34,35 @@ export default async function handler(req, res) {
     // is "how many people have installed MusicSM" rather than "how many took the newest build" —
     // and across both apps: the Android APKs plus MusicSM Desktop's installers. Each app's total
     // is reconciled through its own baseline (env offset + optional Redis) so it never drops on
-    // a reset.
+    // a reset. DOWNLOADS_OVERRIDE (env) forces an exact number to display instead.
+    const override = process.env.DOWNLOADS_OVERRIDE;
     let githubDownloads;
     let downloads = null;
-    if (overridden) {
+    if (override != null && override !== '') {
       githubDownloads = Math.max(0, Number(override) || 0);
     } else {
       const android = await reconcileGithubTotal(totalApkDownloads(releases));
-      githubDownloads = android + (desktop ?? 0);
-      downloads = { android, desktop };
+      githubDownloads = android + (desktop.downloads ?? 0);
+      downloads = { android, desktop: desktop.downloads };
     }
+    const common = {
+      repo: REPO,
+      githubDownloads,
+      downloads,
+      // Left out (not null) when the desktop repo couldn't be read, so the page can tell "nothing
+      // published yet" from "don't know right now".
+      ...(desktop.downloads === null ? {} : { desktop: describeDesktop(desktop.releases) }),
+      desktopReleasesUrl: desktopReleasesUrl(),
+    };
     const release = latestStable(releases);
 
     if (!release) {
-      return res.status(200).json({ repo: REPO, release: null, githubDownloads, downloads });
+      return res.status(200).json({ ...common, release: null });
     }
 
     const assets = apkAssets(release);
     return res.status(200).json({
-      repo: REPO,
-      githubDownloads,
-      downloads,
+      ...common,
       release: {
         version: release.tag_name,
         name: release.name || release.tag_name,
@@ -76,4 +81,21 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(502).json({ error: String(err?.message || err) });
   }
+}
+
+/** The newest desktop installer for each platform, or `null` before the first one is published. */
+function describeDesktop(releases) {
+  const platforms = {};
+  for (const platform of ['windows', 'mac']) {
+    const found = newestPlatformAsset(releases, platform);
+    platforms[platform] = found && {
+      version: found.release.tag_name,
+      publishedAt: found.release.published_at,
+      htmlUrl: found.release.html_url,
+      name: found.asset.name,
+      size: found.asset.size,
+      href: `/api/download?desktop=${platform}&id=${found.asset.id}`,
+    };
+  }
+  return platforms.windows || platforms.mac ? platforms : null;
 }

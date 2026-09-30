@@ -14,7 +14,7 @@ web/
     ├── _lib.js       shared GitHub + Redis helpers (the _ prefix keeps it off the router)
     ├── release.js    latest release + lifetime totals, edge-cached for 5 minutes
     ├── stats.js      the live page-click counter, never cached
-    └── download.js   counts the click, then redirects to the APK on GitHub
+    └── download.js   counts the click, then redirects to the APK (or desktop installer) on GitHub
 ```
 
 ## Deploying
@@ -44,18 +44,28 @@ already does it well, and proxying would hide the download from GitHub's own cou
 resolves to that exact build. An unrecognised id falls back to the newest APK rather than
 erroring.
 
-### MusicSM Desktop in the total
+### MusicSM Desktop
 
 The desktop app is released from its own repo (`DESKTOP_GITHUB_REPO`, default
-`workingpayload/MusicSM-Desktop`), and `/api/release` adds its installers' downloads to the GitHub
-figure. `downloads: { android, desktop }` in the response carries the split, which the page shows
-when you hover the card. The download button still only offers the APK.
+`workingpayload/MusicSM-Desktop`).
+
+**Download buttons.** Under the Android button sit **Download for Windows** and **Download for Mac**,
+plain links to `/api/download?desktop=windows|mac`. That picks the `.msi` / `.dmg` from the newest
+stable desktop release that has one (`&id=` pins a specific file, as for the APK), counts the click,
+and 302s to GitHub. With no desktop release yet — or GitHub unreachable — it sends the visitor to
+the desktop releases page instead. `/api/release` describes both builds under `desktop` (`null`
+before the first release), and the page mutes the buttons and says "coming soon" until then.
+
+**In the total.** `/api/release` adds the desktop installers' downloads to the GitHub figure.
+`downloads: { android, desktop }` in the response carries the split, which the page shows when you
+hover the card. Desktop clicks count towards "Downloads from this page" too.
 
 - Until that repo exists (or while it is private) GitHub answers 404, which counts as 0.
 - If it can't be read (rate limit, outage), the Android figure is served alone with a one-minute
   cache instead of five, so the total catches up quickly.
 - The desktop count has its own reset protection keys (below), so the Android history is untouched.
 - `DOWNLOADS_OVERRIDE` still sets the exact number shown, desktop included.
+- `DESKTOP_GITHUB_REPO=none` hides the desktop buttons and leaves desktop out of the total.
 
 ### Turning on the page counter
 
@@ -86,7 +96,7 @@ All optional.
 | Variable | Default | Why you might set it |
 | --- | --- | --- |
 | `GITHUB_REPO` | `workingpayload/MusicSM` | Point the page at a different repo. |
-| `DESKTOP_GITHUB_REPO` | `workingpayload/MusicSM-Desktop` | Where MusicSM Desktop is released, if you name that repo differently; `none` leaves desktop downloads out of the total. |
+| `DESKTOP_GITHUB_REPO` | `workingpayload/MusicSM-Desktop` | Where MusicSM Desktop is released, if you name that repo differently; `none` hides the desktop buttons and leaves desktop downloads out of the total. |
 | `GITHUB_TOKEN` | — | Lifts GitHub's 60-requests-per-hour unauthenticated limit, which serverless functions share across a region. The 5-minute edge cache normally keeps usage far below it, so this is only worth adding if you see `502`s from `/api/release`. |
 | `KV_REST_API_URL` | — | Set for you by the Upstash integration. |
 | `KV_REST_API_TOKEN` | — | Set for you by the Upstash integration. |

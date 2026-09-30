@@ -145,6 +145,56 @@ function describeSplit(downloads) {
   }
 }
 
+const DESKTOP_BUTTONS = { windows: "desktop-windows", mac: "desktop-mac" };
+
+/**
+ * The Windows and Mac buttons, for MusicSM Desktop. Before its first release they stay muted links
+ * to the desktop releases page, so they're never dead ends.
+ */
+function renderDesktop(data) {
+  // Absent when the desktop repo couldn't be read: the static links still resolve server-side.
+  if (!("desktop" in data)) return;
+  const section = document.querySelector(".desktop-cta");
+  if (!section) return;
+  if (!data.desktop && !data.desktopReleasesUrl) {
+    section.hidden = true; // desktop turned off (DESKTOP_GITHUB_REPO=none)
+    return;
+  }
+
+  for (const [platform, id] of Object.entries(DESKTOP_BUTTONS)) {
+    const button = el(id);
+    const build = data.desktop?.[platform];
+    button.classList.toggle("is-muted", !build);
+    if (build) {
+      button.href = build.href;
+      const size = formatBytes(build.size);
+      button.title = size ? `${build.name} · ${size}` : build.name;
+    } else {
+      button.href = data.desktopReleasesUrl;
+      button.target = "_blank";
+      button.rel = "noopener noreferrer";
+      button.title = "Not published yet — opens the desktop releases page";
+    }
+  }
+
+  const newest = [data.desktop?.windows, data.desktop?.mac]
+    .filter(Boolean)
+    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))[0];
+  if (!newest) {
+    el("desktop-meta").textContent = "MusicSM Desktop for Windows and Mac is coming soon.";
+    return;
+  }
+  const released = formatDate(newest.publishedAt);
+  el("desktop-meta").textContent = [
+    `MusicSM Desktop ${newest.version}`,
+    released && `released ${released}`,
+    "Windows 10/11 (64-bit)",
+    "Macs with Apple silicon",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 async function loadRelease() {
   try {
     const res = await fetch("/api/release");
@@ -156,6 +206,7 @@ async function loadRelease() {
     // resetting to zero. Shown even when there is no downloadable build right now.
     setCount(el("stat-github"), data.githubDownloads);
     describeSplit(data.downloads);
+    renderDesktop(data);
 
     if (!data.release) {
       showNoRelease("No build published yet");
@@ -202,6 +253,12 @@ function watchDownloads() {
   el("alt-builds").addEventListener("click", (event) => {
     if (event.target.closest("a")) onDownload();
   });
+  for (const id of Object.values(DESKTOP_BUTTONS)) {
+    el(id)?.addEventListener("click", (event) => {
+      // Muted, it's a link to the releases page rather than a download.
+      if (!event.currentTarget.classList.contains("is-muted")) onDownload();
+    });
+  }
 }
 
 function onDownload() {

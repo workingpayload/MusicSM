@@ -119,6 +119,49 @@
 
             <p class="cta-meta" id="download-meta">Checking the latest release…</p>
             <ul class="alt-builds" id="alt-builds"></ul>
+
+            <!--
+              MusicSM Desktop, released from its own repo. Plain links as well: /api/download sends
+              each to the newest installer for that OS, or to the desktop releases page before the
+              first one is out. Script only pins them to the build it describes.
+            -->
+            <div class="desktop-cta">
+              <div class="cta-row">
+                <a class="btn btn-ghost" id="desktop-windows" href="/api/download?desktop=windows">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="3" y="4" width="18" height="12" rx="2" />
+                    <path d="M8 20h8M12 16v4" />
+                  </svg>
+                  <span>Download for Windows</span>
+                </a>
+                <a class="btn btn-ghost" id="desktop-mac" href="/api/download?desktop=mac">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="4" y="5" width="16" height="11" rx="1.5" />
+                    <path d="M2 19h20" />
+                  </svg>
+                  <span>Download for Mac</span>
+                </a>
+              </div>
+              <p class="cta-meta" id="desktop-meta">
+                MusicSM Desktop · Windows 10/11 (64-bit) · Macs with Apple silicon
+              </p>
+            </div>
           </div>
 
           <div class="hero-art" aria-hidden="true">
@@ -307,6 +350,13 @@
           <p class="notice">
             <strong>Requires Android 7.0 or newer.</strong> Downloads are served straight from the
             project's GitHub releases, so you can always verify the file at source.
+          </p>
+
+          <p class="notice">
+            <strong>On a computer?</strong> The Windows and Mac installers aren't code-signed yet.
+            On Windows, if SmartScreen steps in, choose <em>More info → Run anyway</em>. On a Mac,
+            open the app once, then allow it under
+            <em>System Settings → Privacy &amp; Security → Open Anyway</em>.
           </p>
         </div>
       </section>

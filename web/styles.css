@@ -451,6 +451,15 @@ h1 .accent {
   border-color: var(--glass-stroke);
 }
 
+/* MusicSM Desktop's buttons: a quieter second row under the Android download. */
+.desktop-cta .cta-row {
+  margin-top: 24px;
+}
+
+.btn-ghost.is-muted {
+  opacity: 0.6;
+}
+
 /* ---------------------------------------------------------- hero visual -- */
 
 .hero-art {
