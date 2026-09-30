@@ -25,6 +25,7 @@ ktor = "3.5.2"
 kotlinxSerialization = "1.11.0"
 newpipeExtractor = "v0.26.5"
 haze = "1.6.10"
+backdrop = "2.0.1"
 zxing = "3.5.3"
 playServicesCodeScanner = "16.1.0"
 
@@ -32,6 +33,7 @@ playServicesCodeScanner = "16.1.0"
 wearCompose = "1.6.2"
 playServicesWearable = "20.0.1"
 wearRemoteInteractions = "1.2.0"
+wear = "1.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,6 +56,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 
 # Media3 (playback)
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+androidx-media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
 androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
 
 # DI - Hilt
@@ -90,11 +93,13 @@ play-services-code-scanner = { group = "com.google.android.gms", name = "play-se
 # Glassmorphism (backdrop blur)
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials", version.ref = "haze" }
+backdrop = { group = "io.github.kyant0", name = "backdrop", version.ref = "backdrop" }
 
 # Wear OS companion
 androidx-wear-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "wearCompose" }
 androidx-wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "wearCompose" }
 androidx-wear-remote-interactions = { group = "androidx.wear", name = "wear-remote-interactions", version.ref = "wearRemoteInteractions" }
+androidx-wear = { group = "androidx.wear", name = "wear", version.ref = "wear" }
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 
 # Ktor + serialization (for :innertube module)

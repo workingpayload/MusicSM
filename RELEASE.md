@@ -1,5 +1,67 @@
 # Release notes
 
+## v3.0.0 — 2026-09-30
+
+A big playback and reach release: DJ-style **Mix** transitions, a controllable song cache with an offline backup page, word-by-word lyrics far more often, playlist import from Apple Music and YouTube, a much richer Wear OS app, and a landscape layout.
+
+### New
+- **Mix** — DJ-style transitions between songs. The next song's opening is blended into the one that's ending, and beats are lined up when both songs already share a tempo, finished with a bass swap. Quiet endings and intros are skipped, and the next song carries on exactly where the blend stopped, so nothing repeats or gets cut. Turn it on in **Settings → Playback → Mix**.
+- **Smoother crossfade** — crossfade now blends inside the main player, exact to the sample, instead of lining up a second player (which drifted on some phones). With crossfade at 0 and Mix off, playback stays gapless.
+- **Song cache controls** — in **Settings → Downloads**:
+  - **Cache played songs** — turn automatic caching on or off (on by default). Turning it off keeps songs already cached.
+  - **Cache size limit** — a slider from 256 MB to 16 GB (default 512 MB). Least recently played songs are removed first; making the limit smaller frees space straight away.
+  - **Clear cached songs** — delete all cached audio in one tap. Downloads, your library and playlists are kept.
+- **Offline backup** — songs that are fully cached now have their own page in the Library and a shelf on Home. They play without internet; remove any of them from the cache.
+- **Word-by-word lyrics more often** — four more lyrics sources (BiniLyrics, LyricsPlus, SimpMusic, Unison). The exact recording is identified first, so lyrics match the version playing. A new **Prefer word-by-word lyrics** setting (on by default) waits a moment for a word-timed source instead of settling for line-by-line.
+- **Share lyrics as a card** — select lines in the lyrics view and share them as an image with the song's cover, title and artist.
+- **Lyrics sync themselves to music videos** — lyrics are timed to the album version of a song, so on a music video with an intro (often 5–25 s, sometimes a minute) every line came in early. When you open lyrics that may be off, MusicSM now finds the song's album version, listens to a stretch of both, measures the gap and shifts the lyrics to match. It runs once per song and stays saved. **Sync now** in the lyrics sync sheet runs it again anytime. It only applies a result when two separate stretches of the song agree, so a remix or live take is left alone.
+- **Screen stays on for lyrics** — while the lyrics are open and a song is playing, the screen doesn't turn off. Pause, close the lyrics or leave the player, and it sleeps as usual.
+- **Import playlists from Apple Music and YouTube** — the importer now takes Apple Music, YouTube and YouTube Music playlist links as well as Spotify. YouTube playlists are copied song for song, the whole playlist (up to 5,000 songs, not just the first 100). Apple Music playlists come in up to 300 songs, Apple's limit for a shared playlist. Matching also checks each song's length, so live and extended versions are passed over. An import keeps going if you leave the screen, and a YouTube Mix (radio) link brings in its first 50 songs.
+- **Videos in Search** — unreleased songs, leaks, covers and live recordings that are on YouTube but not released as songs now show up under **Videos**. Search shows the top songs and videos together; tap **Songs** or **Videos** (or **Show all**) for the full list. Videos play as audio like any song. Turn it on in **Settings → Search → Videos in search** (off by default).
+- **Artwork styles** — pick how animated cover videos show in **Settings**: **Card** (the video plays inside the album card while the colours behind it drift slowly), **Top** (Apple Music style: the video spans the top of the player and fades into the controls) or **Full screen**.
+- **System volume slider** — the Now Playing volume slider is now your phone's media volume. It moves with the volume buttons, and dragging it changes the system volume instead of a separate in-app level.
+- **Cleaner Now Playing** — the top bar is just close and ⋮. Lyrics and Queue sit on either side of the output picker at the bottom, and Share, Sleep timer, About this track and Ambient mode are in the ⋮ menu.
+- **Landscape layout** — on wide screens (tablets, foldables, phones turned sideways) the bottom bar becomes a glass side dock with Search and every tab, and the mini player floats at the bottom.
+- **Bouncy scrolling** — every list, grid and shelf now scrolls like iOS. Pull past the top or bottom and the content stretches with a rubber-band feel, then springs back. A fast fling that hits the end bounces a little past it and settles. Home keeps Android's usual stretch and pull-to-refresh.
+- **Wear OS app** — the watch app is no longer just play/pause/skip:
+  - **Search by voice** from the watch and tap a result to play it on the phone.
+  - **Lyrics** on the watch, highlighted and scrolling in time.
+  - **Always-on screen** that keeps showing the song (and the current lyric line) without burning in.
+  - Album artwork, and **Open on phone**.
+
+### Fixes
+- **Galaxy Watch and Wear OS media controls work.** Play, pause and skip from the watch's own media controller now reach MusicSM. Before, the watch showed the song but its buttons did nothing.
+- **Artist pages no longer list the same song several times.** Music videos and live versions from the artist page were being mixed into the song list. It now shows the artist's songs (up to 50, most popular first), each once.
+- **Age-restricted songs play.** YouTube won't play an age-restricted music video without signing in, so those used to be skipped. MusicSM now plays the song's official audio version from YouTube Music instead (same song, just without the video). If there isn't one, the song is still skipped.
+
+### Notes
+- Update the watch app too: the new Wear features need both the phone and watch on v3.0.0.
+- No database change (still schema v6), so your library carries over untouched. New settings are included in backups.
+- Still not Play-shippable (GPLv3 NewPipeExtractor + YouTube ToS); for personal / educational use.
+## v2.3.0 — 2026-09-24
+
+A design and polish release: a Liquid Glass bottom bar, animated artwork, finer lyrics and output control, plus a batch of navigation fixes.
+
+### New
+- **Scrub the tab bar** — press and slide a finger across the bottom bar; a clear glass lens follows it, lighting each tab it passes (with a haptic tick), and letting go opens the tab underneath.
+- **Minimising bottom bar** — scroll down and the tab bar shrinks to a single icon while the Now Playing pill tucks in between it and Search, giving the content more room. Scroll up (or tap the icon) to bring it back. Can be turned off in **Settings → Minimise bar on scroll**; off by default on low-RAM devices.
+- **Animated artwork** — releases with a looping cover video play it in Now Playing, optionally full screen. Settings let you turn it off, limit it to Wi‑Fi, or pick the artwork source.
+- **Lyrics sync** — nudge synced lyrics earlier/later (100 ms / 1 s steps) or tap to sync the highlighted line to now; offsets are remembered per song. Lyrics matched from a different version of a song are flagged as possibly out of sync.
+- **Audio output picker** — see where audio is playing and switch between speaker, Bluetooth, wired, USB, HDMI and cast outputs from Now Playing.
+- **About this track** — title, artist, album, duration and source (streamed, downloaded or local file).
+- **More Home shelves** — *Daily discover*, *Forgotten favourites*, *Your artists*, *Albums you might have missed* and *More from …*.
+- **Settings tab** in the bottom bar.
+
+### Fixes
+- **Back from Now Playing returns to the album** (or artist / playlist) you played from, instead of skipping back to Search.
+- **The first Back press on Now Playing no longer gets swallowed** (most noticeable while a song was loading).
+- **The keyboard no longer pops up when you turn the screen back on** after playing something from Search.
+
+### Notes
+- New permission: **Nearby devices** (`BLUETOOTH_CONNECT`, Android 12+) — optional, only used to show Bluetooth output names.
+- No database change (still schema v6) — your library carries over untouched.
+- Still not Play-shippable — GPLv3 NewPipeExtractor + YouTube ToS; personal / educational use.
+
 ## v2.0.2 — 2026-09-20
 
 A small follow-up to v2.0.1.

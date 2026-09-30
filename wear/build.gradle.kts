@@ -17,8 +17,8 @@ android {
         applicationId = "com.example.musicsm"
         minSdk = 30
         targetSdk = 37
-        versionCode = 3
-        versionName = "2.0.0"
+        versionCode = 4
+        versionName = "3.0.0"
     }
 
     buildTypes {
@@ -58,7 +58,14 @@ dependencies {
     implementation(libs.androidx.wear.compose.material)
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.remote.interactions)
+    implementation(libs.androidx.wear) // Ambient (always-on display) support
     implementation(libs.play.services.wearable)
+
+    // Album art: loaded by URL over the network (the watch has its own connectivity).
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+    // Extracts the accent colour from the current cover, matching the phone app's artwork theming.
+    implementation(libs.androidx.palette.ktx)
 
     implementation(libs.kotlinx.coroutines.android)
 

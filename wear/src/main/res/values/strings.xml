@@ -5,4 +5,11 @@
     <string name="cd_play_pause">Play or pause</string>
     <string name="cd_next">Next track</string>
     <string name="cd_previous">Previous track</string>
+    <string name="cd_search">Search</string>
+    <string name="cd_lyrics">Lyrics</string>
+    <string name="cd_open_phone">Open on phone</string>
+    <string name="results">Results</string>
+    <string name="no_results">No results</string>
+    <string name="no_lyrics">No lyrics found</string>
+    <string name="search_again">Search again</string>
 </resources>

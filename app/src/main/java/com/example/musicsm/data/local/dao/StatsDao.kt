@@ -79,6 +79,27 @@ interface StatsDao {
     )
     fun topSongs(since: Long, limit: Int): Flow<List<SongPlayCountRow>>
 
+    /**
+     * Songs the listener used to play a lot and then stopped: at least [minPlays] lifetime plays,
+     * but nothing since [staleBefore].
+     *
+     * Deliberately unbounded at the lower end — this reads the whole log, because a favourite
+     * abandoned three years ago is exactly what the shelf is for. The stalest are surfaced first
+     * among equally-played tracks so the shelf doesn't keep offering the same near-miss.
+     */
+    @Query(
+        "SELECT s.*, COUNT(*) AS playCount FROM play_events e " +
+            "INNER JOIN songs s ON s.songId = e.songId " +
+            "GROUP BY e.songId " +
+            "HAVING COUNT(*) >= :minPlays AND MAX(e.playedAt) < :staleBefore " +
+            "ORDER BY playCount DESC, MAX(e.playedAt) ASC LIMIT :limit",
+    )
+    suspend fun forgottenFavorites(
+        staleBefore: Long,
+        minPlays: Int,
+        limit: Int,
+    ): List<SongPlayCountRow>
+
     @Query(
         "SELECT s.artist AS artist, MAX(s.artworkUrl) AS artworkUrl, COUNT(*) AS playCount, " +
             "COUNT(DISTINCT s.songId) AS songCount, COALESCE(SUM(s.durationMs), 0) AS totalMs " +

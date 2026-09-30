@@ -1,17 +1,17 @@
 package com.example.musicsm.ui.importer
 
 import android.content.Context
-import com.example.musicsm.R
-import dagger.hilt.android.qualifiers.ApplicationContext
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.musicsm.R
+import com.example.musicsm.domain.repository.ImportState
 import com.example.musicsm.domain.repository.PlaylistImportRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 sealed interface ImportUiState {
@@ -27,24 +27,27 @@ class ImportViewModel @Inject constructor(
     private val repository: PlaylistImportRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<ImportUiState>(ImportUiState.Idle)
-    val state: StateFlow<ImportUiState> = _state.asStateFlow()
+    val state: StateFlow<ImportUiState> = repository.state
+        .map { it.toUiState() }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            repository.state.value.toUiState(),
+        )
 
     fun import(link: String) {
         if (link.isBlank()) return
-        viewModelScope.launch {
-            _state.value = ImportUiState.Importing(0, 0)
-            val result = repository.importFromLink(link.trim()) { done, total ->
-                _state.value = ImportUiState.Importing(done, total)
-            }
-            _state.value = result.fold(
-                onSuccess = { ImportUiState.Done(it.name, it.matched, it.total) },
-                onFailure = { ImportUiState.Error(it.message ?: context.getString(R.string.import_error)) },
-            )
-        }
+        repository.start(link.trim())
     }
 
     fun reset() {
-        _state.value = ImportUiState.Idle
+        repository.acknowledge()
+    }
+
+    private fun ImportState.toUiState(): ImportUiState = when (this) {
+        ImportState.Idle -> ImportUiState.Idle
+        is ImportState.Running -> ImportUiState.Importing(done, total)
+        is ImportState.Finished -> ImportUiState.Done(result.name, result.matched, result.total)
+        is ImportState.Failed -> ImportUiState.Error(message ?: context.getString(R.string.import_error))
     }
 }

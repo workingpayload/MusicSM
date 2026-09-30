@@ -1,6 +1,6 @@
 package com.example.musicsm.ui.importer
 
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -59,7 +59,7 @@ fun ImportPlaylistScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var link by remember { mutableStateOf("") }
-    BackHandler { onBack() }
+    ScreenBackHandler { onBack() }
 
     Column(modifier = modifier.fillMaxSize().background(AppBackground).statusBarsPadding()) {
         Row64 {
@@ -76,7 +76,7 @@ fun ImportPlaylistScreen(
         when (val s = state) {
             is ImportUiState.Idle, is ImportUiState.Error -> Column(Modifier.padding(20.dp)) {
                 Text(
-                    "Paste a public Spotify playlist link. Each track is matched on YouTube and saved to your library.",
+                    stringResource(R.string.import_description),
                     color = OnDarkVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )

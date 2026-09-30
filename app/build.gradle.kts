@@ -17,8 +17,8 @@ android {
         applicationId = "com.example.musicsm"
         minSdk = 24
         targetSdk = 37
-        versionCode = 5
-        versionName = "2.0.2"
+        versionCode = 7
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -89,6 +89,8 @@ dependencies {
 
     // Media3 playback
     implementation(libs.androidx.media3.exoplayer)
+    // Motion covers are served as HLS, which the core exoplayer artifact cannot read on its own.
+    implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.session)
 
     // Room
@@ -103,12 +105,19 @@ dependencies {
     // Glassmorphism (backdrop blur)
     implementation(libs.haze)
     implementation(libs.haze.materials)
+    implementation(libs.backdrop)
 
     // Coroutines, palette, http, extractor
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.okhttp)
     implementation(libs.newpipe.extractor)
+
+    // YouTube Music metadata: real albums, artists and the related-track graph.
+    implementation(project(":innertube"))
+
+    // Looping cover videos for tracks whose release ships one.
+    implementation(project(":motionart"))
 
     // QR codes for playlist sharing
     implementation(libs.zxing.core)

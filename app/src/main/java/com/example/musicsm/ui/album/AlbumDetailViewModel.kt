@@ -69,12 +69,14 @@ class AlbumDetailViewModel @Inject constructor(
             _state.value = AlbumDetailUiState(loading = true)
             runCatching { musicRepository.album(albumId) }
                 .onSuccess { album ->
+                    val title = album.title.visibleAlbumText().orEmpty()
+                    val songs = album.songs.map { it.withAlbumDetailFallback(title, album.artist) }
                     _state.value = AlbumDetailUiState(
-                        title = album.title,
-                        artist = album.artist,
+                        title = title,
+                        artist = resolvedAlbumDetailArtist(album.artist, songs, title),
                         artworkUrl = album.artworkUrl,
                         year = album.year,
-                        songs = album.songs,
+                        songs = songs,
                         loading = false,
                     )
                 }
@@ -115,3 +117,50 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 }
+
+
+internal fun resolvedAlbumDetailArtist(rawArtist: String, songs: List<Song>, title: String): String =
+    rawArtist.visibleAlbumText()
+        ?: songs.firstNotNullOfOrNull { it.artist.visibleAlbumText() }
+        ?: title.visibleAlbumText()
+        ?: ""
+
+internal fun String?.visibleAlbumText(): String? {
+    val trimmed = this?.trim().orEmpty()
+    return trimmed.takeIf { it.isNotEmpty() && !looksLikeInternalAlbumId(it) }
+}
+
+private fun Song.withAlbumDetailFallback(title: String, albumArtist: String): Song {
+    val resolvedAlbum = album.visibleAlbumText() ?: title.visibleAlbumText()
+    val resolvedArtist = artist.visibleAlbumText()
+        ?: albumArtist.visibleAlbumText()
+        ?: title.visibleAlbumText()
+        ?: ""
+    return if (artist == resolvedArtist && album == resolvedAlbum) {
+        this
+    } else {
+        copy(artist = resolvedArtist, album = resolvedAlbum)
+    }
+}
+
+internal fun looksLikeInternalAlbumId(value: String): Boolean {
+    val text = value.trim()
+    if (text.contains("://") || text.contains("%2F", ignoreCase = true) || text.contains("%3A", ignoreCase = true)) {
+        return true
+    }
+    if (!YOUTUBE_ID_TOKEN.matches(text)) return false
+    return when {
+        text.startsWith("UC") && text.length >= 12 -> true
+        text.startsWith("MPREb") && text.length >= 8 -> true
+        text.startsWith("VL") && text.length >= 12 -> true
+        text.startsWith("OLAK5") && text.length >= 12 -> true
+        text.startsWith("PL") && text.length >= 12 -> true
+        text.startsWith("RD") && text.length >= 12 -> true
+        text.startsWith("UU") && text.length >= 12 -> true
+        text.startsWith("LM") && text.length >= 12 -> true
+        text.length == 11 && text.any { it.isDigit() } && text.any { it == '-' || it == '_' || it.isUpperCase() } -> true
+        else -> false
+    }
+}
+
+private val YOUTUBE_ID_TOKEN = Regex("^[A-Za-z0-9_-]+$")

@@ -79,6 +79,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.musicsm.R
 import com.example.musicsm.ui.components.ArtworkImage
+import com.example.musicsm.ui.components.ArtworkSize
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.components.currentLocale
 import com.example.musicsm.ui.components.rememberDominantColorState
@@ -494,7 +495,7 @@ private fun AmbientArtwork(
             ArtworkImage(
                 url = art,
                 shape = RoundedCornerShape(24.dp),
-                highRes = true,
+                targetSizePx = ArtworkSize.HERO,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(24.dp))

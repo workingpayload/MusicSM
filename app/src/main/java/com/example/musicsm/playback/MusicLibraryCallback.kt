@@ -16,6 +16,7 @@ import com.example.musicsm.domain.repository.DownloadRepository
 import com.example.musicsm.domain.repository.LibraryRepository
 import com.example.musicsm.domain.repository.MusicRepository
 import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -129,6 +130,21 @@ class MusicLibraryCallback(
         }
         resolved
     }
+
+    /**
+     * Media3 only gives untrusted controllers read-only player commands, and watch bridges such
+     * as Samsung's Galaxy Watch plugin connect as untrusted, so their buttons did nothing. Any app
+     * could already drive playback through the platform session, so granting transport control
+     * here opens nothing new; session and library commands keep Media3's defaults.
+     */
+    override fun onConnectAsync(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+    ): ListenableFuture<MediaSession.ConnectionResult> = Futures.immediateFuture(
+        MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+            .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
+            .build(),
+    )
 
     /** Lets the system media notification restart the last queue after a reboot. */
     override fun onPlaybackResumption(

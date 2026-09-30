@@ -1,6 +1,6 @@
 package com.example.musicsm.ui.player
 
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -71,7 +71,7 @@ fun DownloadsScreen(
     modifier: Modifier = Modifier,
     downloadViewModel: DownloadViewModel = hiltViewModel(),
 ) {
-    BackHandler { onBack() }
+    ScreenBackHandler { onBack() }
     val downloads by downloadViewModel.downloads.collectAsStateWithLifecycle()
     val active by downloadViewModel.activeDownloads.collectAsStateWithLifecycle()
     val failed by downloadViewModel.failedDownloads.collectAsStateWithLifecycle()

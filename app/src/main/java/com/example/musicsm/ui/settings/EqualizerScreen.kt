@@ -3,7 +3,7 @@ package com.example.musicsm.ui.settings
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.AudioEffect
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -73,7 +73,7 @@ fun EqualizerScreen(
     modifier: Modifier = Modifier,
     viewModel: EqualizerViewModel = hiltViewModel(),
 ) {
-    BackHandler { onBack() }
+    ScreenBackHandler { onBack() }
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val caps by viewModel.capabilities.collectAsStateWithLifecycle()
     val bands by viewModel.bands.collectAsStateWithLifecycle()

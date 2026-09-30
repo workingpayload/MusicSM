@@ -2,6 +2,7 @@ package com.example.musicsm.ui.theme
 
 import android.app.Activity
 import android.os.Build
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -141,7 +142,11 @@ fun MusicSMTheme(
         }
     }
 
-    CompositionLocalProvider(LocalMusicSmPalette provides palette) {
+    CompositionLocalProvider(
+        LocalMusicSmPalette provides palette,
+        LocalPlatformOverscrollFactory provides LocalOverscrollFactory.current,
+        LocalOverscrollFactory provides BounceOverscrollFactory,
+    ) {
         MaterialTheme(
             colorScheme = palette.toColorScheme(),
             typography = Typography,

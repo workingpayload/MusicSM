@@ -1,5 +1,7 @@
 package com.example.musicsm.ui.search
 
+import androidx.annotation.StringRes
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -33,8 +38,10 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +58,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicsm.R
 import com.example.musicsm.domain.model.SearchResults
@@ -67,7 +77,11 @@ import com.example.musicsm.ui.components.SongRow
 import com.example.musicsm.ui.components.rememberDominantColorState
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.AppBackground
+import com.example.musicsm.ui.theme.Coral
+import com.example.musicsm.ui.theme.OnAccent
+import com.example.musicsm.ui.theme.OnDarkVariant
 import com.example.musicsm.ui.theme.SpotifyGreen
+import com.example.musicsm.ui.theme.SurfaceLow
 
 @Composable
 fun SearchScreen(
@@ -82,13 +96,22 @@ fun SearchScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recents by viewModel.recentSearches.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     var optionsSong by remember { mutableStateOf<Song?>(null) }
+    // A still-focused field makes the IME pop back up whenever the window regains focus (e.g.
+    // screen off → on), so focus is dropped whenever the user is done typing.
+    val dismissKeyboard = {
+        keyboard?.hide()
+        focusManager.clearFocus()
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { focusManager.clearFocus() }
 
     // Tint the header by the top result's artwork (falls back to the accent).
     val firstArtwork = (state as? SearchUiState.Results)?.results?.let { r ->
         r.songs.firstOrNull()?.artworkUrl
             ?: r.albums.firstOrNull()?.artworkUrl
             ?: r.artists.firstOrNull()?.artworkUrl
+            ?: r.videos.firstOrNull()?.artworkUrl
     }
     val headerAccent = rememberDominantColorState(firstArtwork, fallback = SpotifyGreen)
 
@@ -128,7 +151,7 @@ fun SearchScreen(
                     keyboardActions = KeyboardActions(
                         onSearch = {
                             viewModel.onSubmit()
-                            keyboard?.hide()
+                            dismissKeyboard()
                         },
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -193,10 +216,10 @@ fun SearchScreen(
 
                 is SearchUiState.Results -> ResultsList(
                     results = s.results,
-                    onPlaySong = onPlaySong,
-                    onOpenAlbum = onOpenAlbum,
-                    onOpenArtist = onOpenArtist,
-                    onMore = { optionsSong = it },
+                    onPlaySong = { dismissKeyboard(); onPlaySong(it) },
+                    onOpenAlbum = { dismissKeyboard(); onOpenAlbum(it) },
+                    onOpenArtist = { dismissKeyboard(); onOpenArtist(it) },
+                    onMore = { dismissKeyboard(); optionsSong = it },
                 )
             }
         }
@@ -289,39 +312,123 @@ private fun ResultsList(
         }
         return
     }
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarPadding.current)) {
-        if (results.artists.isNotEmpty()) {
-            item { SectionHeader(stringResource(R.string.section_artists)) }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    // Index in the key guarantees uniqueness even if two artists share an id.
-                    itemsIndexed(results.artists, key = { index, artist -> "$index-${artist.id}" }) { _, artist ->
-                        ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
+    // Back to "All" whenever a new search comes in.
+    var filter by rememberSaveable(results) { mutableStateOf(ResultFilter.ALL) }
+    // With both songs and videos, "All" previews each and the chips show one kind in full.
+    val both = results.songs.isNotEmpty() && results.videos.isNotEmpty()
+    // A restored filter isn't checked against the results it was saved for; without both kinds
+    // there are no chips to get out of it, so only "All" makes sense.
+    val shown = if (both) filter else ResultFilter.ALL
+    key(shown) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarPadding.current)) {
+            if (both) item(key = "filters") { ResultFilters(shown, onSelect = { filter = it }) }
+            when (shown) {
+                ResultFilter.ALL -> {
+                    if (results.artists.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.section_artists)) }
+                        item {
+                            LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+                                // Index in the key guarantees uniqueness even if two artists share an id.
+                                itemsIndexed(results.artists, key = { index, artist -> "$index-${artist.id}" }) { _, artist ->
+                                    ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
+                                }
+                            }
+                        }
                     }
-                }
-            }
-        }
-        if (results.albums.isNotEmpty()) {
-            item { SectionHeader(stringResource(R.string.section_albums)) }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    // Index in the key guarantees uniqueness even if two albums share an id.
-                    itemsIndexed(results.albums, key = { index, album -> "$index-${album.id}" }) { _, album ->
-                        AlbumCard(album = album, onClick = { onOpenAlbum(album.id) })
+                    if (results.albums.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.section_albums)) }
+                        item {
+                            LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+                                // Index in the key guarantees uniqueness even if two albums share an id.
+                                itemsIndexed(results.albums, key = { index, album -> "$index-${album.id}" }) { _, album ->
+                                    AlbumCard(album = album, onClick = { onOpenAlbum(album.id) })
+                                }
+                            }
+                        }
                     }
+                    songSection(
+                        R.string.section_songs, "songs", results.songs, if (both) PREVIEW_COUNT else Int.MAX_VALUE,
+                        onShowAll = { filter = ResultFilter.SONGS }, onPlaySong, onMore,
+                    )
+                    songSection(
+                        R.string.section_videos, "videos", results.videos, if (both) PREVIEW_COUNT else Int.MAX_VALUE,
+                        onShowAll = { filter = ResultFilter.VIDEOS }, onPlaySong, onMore,
+                    )
                 }
-            }
-        }
-        if (results.songs.isNotEmpty()) {
-            item { SectionHeader(stringResource(R.string.section_songs)) }
-            // Index in the key guarantees uniqueness even if two songs share an id.
-            itemsIndexed(results.songs, key = { index, song -> "$index-${song.id}" }) { _, song ->
-                SongRow(
-                    song = song,
-                    onClick = { onPlaySong(song) },
-                    onMore = { onMore(song) },
-                )
+                ResultFilter.SONGS -> songSection(R.string.section_songs, "songs", results.songs, Int.MAX_VALUE, {}, onPlaySong, onMore)
+                ResultFilter.VIDEOS -> songSection(R.string.section_videos, "videos", results.videos, Int.MAX_VALUE, {}, onPlaySong, onMore)
             }
         }
     }
 }
+
+/** Which results the list shows. */
+private enum class ResultFilter(@param:StringRes val label: Int) {
+    ALL(R.string.search_filter_all),
+    SONGS(R.string.section_songs),
+    VIDEOS(R.string.section_videos),
+}
+
+@Composable
+private fun ResultFilters(selected: ResultFilter, onSelect: (ResultFilter) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ResultFilter.entries.forEach { filter ->
+            val active = filter == selected
+            Text(
+                text = stringResource(filter.label),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                color = if (active) OnAccent else OnDarkVariant,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(if (active) Coral else SurfaceLow)
+                    .clickable { onSelect(filter) }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+    }
+}
+
+/** A titled list of songs (or videos): the first [limit], then "Show all" if there are more. */
+private fun LazyListScope.songSection(
+    @StringRes title: Int,
+    keyPrefix: String,
+    songs: List<Song>,
+    limit: Int,
+    onShowAll: () -> Unit,
+    onPlaySong: (Song) -> Unit,
+    onMore: (Song) -> Unit,
+) {
+    if (songs.isEmpty()) return
+    item(key = "$keyPrefix-header") { SectionHeader(stringResource(title)) }
+    // Index in the key guarantees uniqueness even if two songs share an id.
+    itemsIndexed(songs.take(limit), key = { index, song -> "$keyPrefix-$index-${song.id}" }) { _, song ->
+        SongRow(
+            song = song,
+            onClick = { onPlaySong(song) },
+            onMore = { onMore(song) },
+        )
+    }
+    if (songs.size > limit) {
+        item(key = "$keyPrefix-all") {
+            Text(
+                text = stringResource(R.string.search_show_all),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = OnDarkVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onShowAll)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+        }
+    }
+}
+
+private const val PREVIEW_COUNT = 5

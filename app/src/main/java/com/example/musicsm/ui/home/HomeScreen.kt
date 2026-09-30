@@ -19,13 +19,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.OfflineBolt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +57,9 @@ import com.example.musicsm.domain.model.HomeItem
 import com.example.musicsm.domain.model.HomeSection
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.ui.components.AlbumCard
+import com.example.musicsm.ui.components.ArtistCircle
 import com.example.musicsm.ui.components.ArtworkImage
+import com.example.musicsm.ui.components.ArtworkSize
 import com.example.musicsm.ui.components.ErrorState
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.SkeletonBlock
@@ -72,6 +75,10 @@ import com.example.musicsm.ui.theme.SurfaceLow
 @Composable
 fun HomeScreen(
     onPlaySongs: (List<Song>, Int) -> Unit,
+    onOpenAlbum: (String) -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenPlaylist: (String) -> Unit,
+    onOpenCached: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -118,7 +125,20 @@ fun HomeScreen(
                     modifier = Modifier.align(Alignment.Center),
                 )
 
-                is HomeUiState.Content -> HomeContent(s.feed.sections, s.offline, onPlaySongs, viewModel::saveShelf)
+                is HomeUiState.Content -> HomeContent(
+                    sections = s.feed.sections,
+                    offline = s.offline,
+                    loadingMore = s.loadingMore,
+                    canLoadMore = s.canLoadMore,
+                    pages = s.pages,
+                    onPlaySongs = onPlaySongs,
+                    onOpenAlbum = onOpenAlbum,
+                    onOpenArtist = onOpenArtist,
+                    onOpenPlaylist = onOpenPlaylist,
+                    onSaveShelf = viewModel::saveShelf,
+                    onLoadMore = viewModel::loadMore,
+                    onOpenCached = onOpenCached,
+                )
             }
         }
     }
@@ -128,11 +148,23 @@ fun HomeScreen(
 private fun HomeContent(
     sections: List<HomeSection>,
     offline: Boolean,
+    loadingMore: Boolean,
+    canLoadMore: Boolean,
+    pages: Int,
     onPlaySongs: (List<Song>, Int) -> Unit,
+    onOpenAlbum: (String) -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenPlaylist: (String) -> Unit,
     onSaveShelf: (String, List<Song>) -> Unit,
+    onLoadMore: () -> Unit,
+    onOpenCached: () -> Unit,
 ) {
-    val featuredList = sections.firstOrNull()
-        ?.items?.mapNotNull { (it as? HomeItem.SongItem)?.song }
+    // The first shelf may now be artists or albums, so pick the first one that actually has
+    // tracks — the hero card can only play songs.
+    val featuredList = sections
+        .firstNotNullOfOrNull { section ->
+            section.items.mapNotNull { (it as? HomeItem.SongItem)?.song }.ifEmpty { null }
+        }
         .orEmpty()
     val featured = featuredList.firstOrNull()
 
@@ -171,6 +203,26 @@ private fun HomeContent(
                     )
                 }
             }
+            item {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(CircleShape)
+                        .background(Coral)
+                        .clickable(onClick = onOpenCached)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.OfflineBolt, contentDescription = null, tint = OnAccent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(R.string.cached_browse),
+                        color = OnAccent,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             if (sections.isEmpty()) {
                 item {
                     Text(
@@ -196,26 +248,103 @@ private fun HomeContent(
 
         // Shelves
         items(sections, key = { it.title }) { section ->
-            val songs = section.items.mapNotNull { (it as? HomeItem.SongItem)?.song }
-            if (songs.isNotEmpty()) {
-                ShelfHeader(section.title, onSave = { onSaveShelf(section.title, songs) })
-                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    itemsIndexed(songs) { index, song ->
-                        AlbumCard(
-                            title = song.title,
-                            subtitle = song.artist,
-                            artworkUrl = song.artworkUrl,
-                            onClick = { onPlaySongs(songs, index) },
-                        )
-                    }
-                }
+            ShelfRow(
+                section = section,
+                onPlaySongs = onPlaySongs,
+                onOpenAlbum = onOpenAlbum,
+                onOpenArtist = onOpenArtist,
+                onOpenPlaylist = onOpenPlaylist,
+                onSaveShelf = onSaveShelf,
+            )
+        }
+
+        if (loadingMore) {
+            item { ShelfSkeleton(count = 2) }
+        }
+
+        // Paging trigger. Composing this row means the bottom of the list is on screen, which is
+        // the cue to fetch the next batch; it doubles as the placeholder while that arrives.
+        if (canLoadMore) {
+            item(key = LOAD_MORE_KEY) {
+                LaunchedEffect(pages) { onLoadMore() }
+                ShelfSkeleton(count = 1)
             }
         }
     }
 }
 
+private const val LOAD_MORE_KEY = "home:load-more"
+
+/**
+ * One horizontal shelf. A section is all one kind of card in practice, but the model allows a
+ * mix, so each item is rendered by its own type rather than by a per-shelf mode.
+ */
 @Composable
-private fun ShelfHeader(title: String, onSave: () -> Unit) {
+private fun ShelfRow(
+    section: HomeSection,
+    onPlaySongs: (List<Song>, Int) -> Unit,
+    onOpenAlbum: (String) -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenPlaylist: (String) -> Unit,
+    onSaveShelf: (String, List<Song>) -> Unit,
+) {
+    if (section.items.isEmpty()) return
+
+    // Playing a card has to enqueue the whole shelf, so indices are taken against the songs
+    // alone — a mixed shelf would otherwise start playback at the wrong track.
+    val songs = section.items.mapNotNull { (it as? HomeItem.SongItem)?.song }
+
+    ShelfHeader(
+        title = section.title,
+        // Only a shelf of tracks can become a playlist.
+        onSave = if (songs.isNotEmpty()) ({ onSaveShelf(section.title, songs) }) else null,
+    )
+    LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+        items(section.items, key = { it.key() }) { item ->
+            when (item) {
+                is HomeItem.SongItem -> AlbumCard(
+                    title = item.song.title,
+                    subtitle = item.song.artist,
+                    artworkUrl = item.song.artworkUrl,
+                    onClick = {
+                        val index = songs.indexOfFirst { it.id == item.song.id }
+                        if (index >= 0) onPlaySongs(songs, index)
+                    },
+                )
+
+                is HomeItem.AlbumItem -> AlbumCard(
+                    album = item.album,
+                    onClick = { onOpenAlbum(item.album.id) },
+                )
+
+                is HomeItem.ArtistItem -> ArtistCircle(
+                    artist = item.artist,
+                    onClick = { onOpenArtist(item.artist.id) },
+                )
+
+                is HomeItem.PlaylistItem -> AlbumCard(
+                    title = item.playlist.name,
+                    subtitle = "",
+                    artworkUrl = item.playlist.artworkUrl,
+                    // Shelf cards carry no track list, so the playlist has to be opened rather
+                    // than played — tapping one otherwise does nothing at all.
+                    onClick = { onOpenPlaylist(item.playlist.id) },
+                )
+            }
+        }
+    }
+}
+
+/** Stable, type-qualified list key — a song and an album can share an id across providers. */
+private fun HomeItem.key(): String = when (this) {
+    is HomeItem.SongItem -> "song:${song.id}"
+    is HomeItem.AlbumItem -> "album:${album.id}"
+    is HomeItem.ArtistItem -> "artist:${artist.id}"
+    is HomeItem.PlaylistItem -> "playlist:${playlist.id}"
+}
+
+@Composable
+private fun ShelfHeader(title: String, onSave: (() -> Unit)?) {
     var saved by remember(title) { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
@@ -231,12 +360,14 @@ private fun ShelfHeader(title: String, onSave: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = { if (!saved) { onSave(); saved = true } }) {
-            Icon(
-                imageVector = if (saved) Icons.Filled.Check else Icons.Filled.BookmarkAdd,
-                contentDescription = stringResource(R.string.home_save_as_playlist),
-                tint = if (saved) Coral else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        if (onSave != null) {
+            IconButton(onClick = { if (!saved) { onSave(); saved = true } }) {
+                Icon(
+                    imageVector = if (saved) Icons.Filled.Check else Icons.Filled.BookmarkAdd,
+                    contentDescription = stringResource(R.string.home_save_as_playlist),
+                    tint = if (saved) Coral else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -266,28 +397,35 @@ private fun HomeSkeleton() {
             )
         }
         // Shelves
-        items(3) {
-            Column {
-                SkeletonBlock(
-                    progress = progress,
-                    modifier = Modifier
-                        .padding(start = 16.dp, top = 12.dp, bottom = 12.dp)
-                        .width(140.dp)
-                        .height(22.dp),
-                )
-                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    items(4) {
-                        Column(modifier = Modifier.width(150.dp).padding(8.dp)) {
-                            SkeletonBlock(
-                                progress = progress,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            SkeletonBlock(progress = progress, modifier = Modifier.fillMaxWidth().height(14.dp))
-                            Spacer(Modifier.height(6.dp))
-                            SkeletonBlock(progress = progress, modifier = Modifier.fillMaxWidth(0.6f).height(12.dp))
-                        }
+        item { ShelfSkeleton(count = 3) }
+    }
+}
+
+/** Placeholder shelves, used both for a cold start and while the network shelves load. */
+@Composable
+private fun ShelfSkeleton(count: Int) {
+    val progress = rememberShimmerProgress()
+    Column {
+        repeat(count) {
+            SkeletonBlock(
+                progress = progress,
+                modifier = Modifier
+                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp)
+                    .width(140.dp)
+                    .height(22.dp),
+            )
+            LazyRow(contentPadding = PaddingValues(horizontal = 8.dp), userScrollEnabled = false) {
+                items(4) {
+                    Column(modifier = Modifier.width(150.dp).padding(8.dp)) {
+                        SkeletonBlock(
+                            progress = progress,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SkeletonBlock(progress = progress, modifier = Modifier.fillMaxWidth().height(14.dp))
+                        Spacer(Modifier.height(6.dp))
+                        SkeletonBlock(progress = progress, modifier = Modifier.fillMaxWidth(0.6f).height(12.dp))
                     }
                 }
             }
@@ -311,6 +449,7 @@ private fun HeroCard(
             ArtworkImage(
                 url = song.artworkUrl,
                 shape = RoundedCornerShape(24.dp),
+                targetSizePx = ArtworkSize.TILE,
                 modifier = Modifier.fillMaxSize(),
             )
             // Legibility scrim.

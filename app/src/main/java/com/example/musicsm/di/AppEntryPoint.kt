@@ -1,5 +1,7 @@
 package com.example.musicsm.di
 
+import com.example.musicsm.domain.repository.LyricsRepository
+import com.example.musicsm.domain.repository.MusicRepository
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -13,4 +15,6 @@ import okhttp3.OkHttpClient
 @InstallIn(SingletonComponent::class)
 interface AppEntryPoint {
     fun okHttpClient(): OkHttpClient
+    fun musicRepository(): MusicRepository
+    fun lyricsRepository(): LyricsRepository
 }

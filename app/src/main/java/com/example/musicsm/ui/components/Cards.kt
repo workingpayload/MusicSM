@@ -66,6 +66,7 @@ fun AlbumCard(
         ArtworkImage(
             url = artworkUrl,
             shape = RoundedCornerShape(12.dp),
+            targetSizePx = ArtworkSize.TILE,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f),
@@ -111,6 +112,7 @@ fun ArtistCircle(artist: Artist, onClick: () -> Unit, modifier: Modifier = Modif
         ArtworkImage(
             url = artist.artworkUrl,
             shape = CircleShape,
+            targetSizePx = rememberArtworkPx(114.dp),
             modifier = Modifier.size(114.dp),
         )
         Text(

@@ -33,7 +33,8 @@ import com.example.musicsm.ui.theme.OnDarkVariant
 
 /**
  * Floating frosted mini-player card (Stitch design): artwork tile, title/artist, play + next.
- * Tap the card to open the full player.
+ * Tap the card to open the full player. [compact] drops the next button, for when the card sits
+ * inline in the minimised bottom bar and the title needs the room.
  */
 @Composable
 fun MiniPlayer(
@@ -42,14 +43,14 @@ fun MiniPlayer(
     onTogglePlay: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     val song = state.currentSong ?: return
     GlassPanel(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(50),
         tint = GlassFillStrong,
+        liquid = true,
     ) {
         Row(
             modifier = Modifier
@@ -59,7 +60,7 @@ fun MiniPlayer(
                 .padding(start = 8.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ArtworkImage(url = song.artworkUrl, shape = CircleShape, modifier = Modifier.size(44.dp))
+            ArtworkImage(url = song.artworkUrl, shape = CircleShape, targetSizePx = rememberArtworkPx(44.dp), modifier = Modifier.size(44.dp))
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -92,8 +93,10 @@ fun MiniPlayer(
                     )
                 }
             }
-            IconButton(onClick = onNext, enabled = state.hasNext) {
-                Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.player_next), tint = MaterialTheme.colorScheme.onSurface)
+            if (!compact) {
+                IconButton(onClick = onNext, enabled = state.hasNext) {
+                    Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.player_next), tint = MaterialTheme.colorScheme.onSurface)
+                }
             }
         }
     }

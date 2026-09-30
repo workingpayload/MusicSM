@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
@@ -53,15 +54,15 @@ class SearchViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            _query
-                .debounce(350)
+            // Re-runs the current search when the "videos in search" setting is flipped, too.
+            combine(_query.debounce(350).distinctUntilChanged(), preferences.searchVideos) { q, videos -> q to videos }
                 .distinctUntilChanged()
-                .collectLatest { q ->
+                .collectLatest { (q, videos) ->
                     if (q.isBlank()) {
                         _state.value = SearchUiState.Idle(repository.browseTiles())
                     } else {
                         _state.value = SearchUiState.Loading
-                        _state.value = runCatching { SearchUiState.Results(repository.search(q)) }
+                        _state.value = runCatching { SearchUiState.Results(repository.search(q, includeVideos = videos)) }
                             .onSuccess { if (!it.results.isEmpty) preferences.addRecentSearch(q) }
                             .getOrElse { SearchUiState.Error(it.message ?: context.getString(R.string.search_error)) }
                     }
@@ -105,8 +106,9 @@ class SearchViewModel @Inject constructor(
         }
         retryJob = viewModelScope.launch {
             _state.value = SearchUiState.Loading
-            _state.value = runCatching { SearchUiState.Results(repository.search(q)) }
-                .getOrElse { SearchUiState.Error(it.message ?: context.getString(R.string.search_error)) }
+            _state.value = runCatching {
+                SearchUiState.Results(repository.search(q, includeVideos = preferences.searchVideosNow))
+            }.getOrElse { SearchUiState.Error(it.message ?: context.getString(R.string.search_error)) }
         }
     }
 

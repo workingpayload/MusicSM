@@ -57,7 +57,7 @@ class ArtistDetailViewModel @Inject constructor(
 
     fun toggleLike() {
         val s = _state.value
-        val name = s.name.ifBlank { artistId }
+        val name = s.name.ifBlank { displayableArtistSeed(artistId) }
         viewModelScope.launch {
             libraryRepository.toggleArtistLike(Artist(id = artistId, name = name, artworkUrl = s.artworkUrl))
         }
@@ -65,17 +65,21 @@ class ArtistDetailViewModel @Inject constructor(
 
     private fun load() {
         viewModelScope.launch {
-            // Seed the name (the nav arg IS the artist name) so the screen shows who is loading
-            // straight away instead of a blank canvas while the page is fetched.
-            _state.value = ArtistDetailUiState(loading = true, name = artistId)
+            // Seed only human-readable artist names. Channel/browse ids are internal routing keys
+            // and should never flash as visible page text while metadata is loading.
+            _state.value = ArtistDetailUiState(loading = true, name = displayableArtistSeed(artistId))
             runCatching { musicRepository.artist(artistId) }
                 .onSuccess { artist ->
+                    val topSongs = artist.topSongs.map { it.withVisibleArtistFallback(artist.name) }
+                    val name = resolvedArtistDetailName(artist.name, artistId, topSongs)
                     _state.value = ArtistDetailUiState(
-                        name = artist.name,
+                        name = name,
                         artworkUrl = artist.artworkUrl,
                         subscribers = artist.subscribers,
-                        topSongs = artist.topSongs,
-                        albums = artist.albums,
+                        topSongs = topSongs,
+                        albums = artist.albums.map { album ->
+                            album.copy(artist = album.artist.visibleCatalogText() ?: name)
+                        },
                         loading = false,
                     )
                 }
@@ -85,3 +89,45 @@ class ArtistDetailViewModel @Inject constructor(
         }
     }
 }
+
+
+internal fun displayableArtistSeed(raw: String): String = raw.visibleCatalogText().orEmpty()
+
+internal fun resolvedArtistDetailName(rawName: String, artistId: String, songs: List<Song>): String =
+    rawName.visibleCatalogText()
+        ?: songs.firstNotNullOfOrNull { it.artist.visibleCatalogText() }
+        ?: displayableArtistSeed(artistId)
+
+private fun Song.withVisibleArtistFallback(fallback: String): Song {
+    val resolvedArtist = artist.visibleCatalogText()
+        ?: fallback.visibleCatalogText()
+        ?: ""
+    return if (artist == resolvedArtist) this else copy(artist = resolvedArtist)
+}
+
+internal fun String?.visibleCatalogText(): String? {
+    val trimmed = this?.trim().orEmpty()
+    return trimmed.takeIf { it.isNotEmpty() && !looksLikeInternalYouTubeId(it) }
+}
+
+internal fun looksLikeInternalYouTubeId(value: String): Boolean {
+    val text = value.trim()
+    if (text.contains("://") || text.contains("%2F", ignoreCase = true) || text.contains("%3A", ignoreCase = true)) {
+        return true
+    }
+    if (!YOUTUBE_ID_TOKEN.matches(text)) return false
+    return when {
+        text.startsWith("UC") && text.length >= 12 -> true
+        text.startsWith("MPREb") && text.length >= 8 -> true
+        text.startsWith("VL") && text.length >= 12 -> true
+        text.startsWith("OLAK5") && text.length >= 12 -> true
+        text.startsWith("PL") && text.length >= 12 -> true
+        text.startsWith("RD") && text.length >= 12 -> true
+        text.startsWith("UU") && text.length >= 12 -> true
+        text.startsWith("LM") && text.length >= 12 -> true
+        text.length == 11 && text.any { it.isDigit() } && text.any { it == '-' || it == '_' || it.isUpperCase() } -> true
+        else -> false
+    }
+}
+
+private val YOUTUBE_ID_TOKEN = Regex("^[A-Za-z0-9_-]+$")

@@ -1,6 +1,6 @@
 # MusicSM
 
-**v2.0.2** — A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans). Also plays music stored on your device.
+**v3.0.0** — A dark, glassmorphic music‑streaming app for Android. Real audio streamed from YouTube via NewPipeExtractor and played through AndroidX Media3, wrapped in a Jetpack Compose UI inspired by an aurora‑glass design language (coral accent, Plus Jakarta Sans). Also plays music stored on your device.
 
 > **Not shippable to Google Play.** MusicSM streams from YouTube and depends on GPLv3 `NewPipeExtractor`; it is a personal / educational project, not a distributable product.
 
@@ -9,31 +9,37 @@
 ## Features
 
 **Browse & discover**
-- **Home** — taste‑based shelves from your history, likes, and followed artists (*Recommended for you*, *Because you liked …*, *From artists you follow*), real **Trending now**, plus curated genre/mood tiles. Pull‑to‑refresh, shimmer skeletons; offline fallback to downloads/recent/liked.
-- **Search** — songs, albums, artists; **Album** and **Artist** detail pages; follow artists.
+- **Home** — taste‑based shelves from your history, likes, and followed artists (*Recommended for you*, *Daily discover*, *Because you liked …*, *Forgotten favourites*, *From artists you follow*, *Albums you might have missed*), real **Trending now**, plus curated genre/mood tiles. Pull‑to‑refresh, shimmer skeletons; offline fallback to downloads/recent/liked.
+- **Search** — songs, videos, albums, artists (videos cover what isn't a released song: unreleased tracks, leaks, covers, live recordings; turn on in Settings); **Album** and **Artist** detail pages; follow artists.
 - **Listening Stats** — top tracks/artists over time.
 
 **Library, playlists & sharing**
 - Liked songs + local playlists (custom covers, delete).
 - **Local files** — play music stored on the device (scanned from MediaStore); like it and add it to playlists like any track.
-- **Import from a Spotify link** — paste a public playlist URL; tracks matched on YouTube and saved.
+- **Import playlists from Spotify, Apple Music and YouTube** — paste a public playlist link. YouTube / YouTube Music playlists are copied as they are (all of it, up to 5,000 songs); Spotify and Apple Music tracks are matched on YouTube (by artist, title and length). Everything is saved to your library.
 - **Share** playlists via link / QR code, and **scan** a code to open one.
 - **Backup & restore** — export the whole library + settings to a portable JSON file and merge it back on a new install (no account login needed).
 
 **Offline**
-- **Automatic caching** — played tracks are cached to disk (LRU‑capped) and replay offline, Spotify‑style.
+- **Automatic caching** — played tracks are cached to disk and replay offline, Spotify‑style. Turn it on or off, set the size limit (256 MB – 16 GB, least recently played removed first) and clear it in **Settings → Downloads**.
+- **Offline backup** — a Library page (and Home shelf) of every fully cached song, playable without internet.
 - **Downloads** — explicit offline downloads with a background service + notification, a Downloads page, and album/playlist bulk download.
 
 **Playback**
 - Background playback via a Media3 **MediaLibraryService**; notification / lockscreen controls reopen the app.
-- **True overlapping crossfade**, **equalizer + audio effects** (bass boost, virtualizer, loudness, skip‑silence, speed), **sleep timer**, high‑bitrate audio.
+- **Mix** — DJ‑style transitions: the next song's opening is blended into the current one's ending, beat‑matched when tempos agree, with a bass swap.
+- **Sample‑exact crossfade** (gapless when off), **equalizer + audio effects** (bass boost, virtualizer, loudness, skip‑silence, speed), **sleep timer**, high‑bitrate audio.
+- The Now Playing volume slider is the phone's **system media volume**.
 - Frame‑interpolated position so the seek bar and live synced lyrics stay smooth.
-- **Resilient streaming** — an expired or rejected stream URL is re‑resolved on the fly, and a track that still fails is skipped rather than stalling playback.
+- **Word‑by‑word lyrics** from eight sources (Apple Music, BiniLyrics, LyricsPlus, SimpMusic, LRCLIB, KuGou, Unison, YouTube Music), reorderable in Settings; lyrics on a music video **sync themselves** to it by lining its audio up with the album version (or tap **Sync now**); share selected lines as an image card.
+- **Resilient streaming** — an expired or rejected stream URL is re‑resolved on the fly, and a track that still fails is skipped rather than stalling playback. Age‑restricted videos play from the song's official audio version.
 
 **Beyond the phone**
-- **Android Auto** (browse + play), **Wear OS** transport, a **home‑screen widget**, a **Quick Settings tile**, deep links / "Open with" & "Share to MusicSM" for YouTube links, and voice "play … on MusicSM".
+- **Android Auto** (browse + play), a **Wear OS** app (controls, voice search, lyrics, always‑on screen), a **home‑screen widget**, a **Quick Settings tile**, deep links / "Open with" & "Share to MusicSM" for YouTube links, and voice "play … on MusicSM".
 
-**Now Playing** — blurred artwork backdrop, breathing album art, hue‑cycling frosted‑glass play/pause button, animated multi‑hue seek bar, glassy album‑tinted volume, queue, and live lyrics.
+**Now Playing** — blurred artwork backdrop, breathing album art, **animated cover videos** (in the album card, borderless across the top Apple Music style, or full screen), hue‑cycling frosted‑glass play/pause button, animated multi‑hue seek bar, glassy album‑tinted volume, an **audio output picker**, track details, queue, and live lyrics with **per‑song sync adjustment**.
+
+**Liquid Glass navigation** — a floating glass tab bar you can **scrub with a finger** from tab to tab; it **minimises while you scroll**, tucking the mini player in between the current tab and Search. In landscape it becomes a glass **side dock**. Every list outside Home scrolls with an **iOS‑style bounce** at its ends.
 
 **Support** — a "Buy me a coffee" option at the top of Settings pays over **UPI** (Google Pay / PhonePe / Paytm / any UPI app) or copies the UPI ID.
 
@@ -60,7 +66,7 @@
 | Build | Gradle 9.5, AGP 9.3.2 (built‑in Kotlin), KSP 2.3.11 |
 | DI | Hilt 2.60.1 |
 | Playback | AndroidX Media3 1.11.0 (ExoPlayer + MediaLibraryService, cache, effects) |
-| Data | NewPipeExtractor v0.26.5 (YouTube); Spotify public embed for playlist import |
+| Data | NewPipeExtractor v0.26.5 (YouTube); Spotify public embed and Apple Music web pages for playlist import |
 | Storage | Room 2.8.4 (v6 schema) |
 | Images | Coil 3 |
 | Glass blur | Haze |
@@ -75,7 +81,7 @@ ui/            Compose screens + ViewModels (home, search, library, album, artis
                player, importer, settings, stats, share, actions)
 navigation/    Routes, root scaffold, NavHost, bottom bar
 domain/        Pure Kotlin models + repository/source interfaces (+ recommend, match)
-data/          Impls — only layer importing NewPipe / Room / Spotify / prefs
+data/          Impls — only layer importing NewPipe / Room / Spotify / Apple Music / prefs
 playback/      Media3 bridge (service, controller, resolver, crossfade, effects, sleep timer)
 download/      Foreground download service
 update/        In-app updater (checks GitHub Releases, installs the APK)

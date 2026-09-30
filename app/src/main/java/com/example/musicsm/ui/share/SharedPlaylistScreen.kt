@@ -1,6 +1,6 @@
 package com.example.musicsm.ui.share
 
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicsm.R
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.ui.components.ArtworkImage
+import com.example.musicsm.ui.components.ArtworkSize
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.SongRow
 import com.example.musicsm.ui.theme.AppBackground
@@ -71,7 +72,7 @@ fun SharedPlaylistScreen(
     val playlist = ui.playlist
 
     // System back must discard too, otherwise the stale link reappears on the next navigation.
-    BackHandler {
+    ScreenBackHandler {
         viewModel.discard()
         onBack()
     }
@@ -128,7 +129,7 @@ fun SharedPlaylistScreen(
                     ArtworkImage(
                         url = playlist.songs.firstOrNull()?.artworkUrl,
                         shape = RoundedCornerShape(16.dp),
-                        highRes = true,
+                        targetSizePx = ArtworkSize.HERO,
                         modifier = Modifier.fillMaxWidth(0.5f).aspectRatio(1f),
                     )
                     Spacer(Modifier.height(16.dp))

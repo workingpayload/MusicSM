@@ -6,6 +6,9 @@ import com.example.musicsm.domain.model.Song
 /**
  * Immutable snapshot of the player, observed by the UI.
  *
+ * [volume] is the per-player gain reserved for sleep-timer fades. [systemVolume] is the phone's
+ * media/device volume exposed to the Now Playing slider when [systemVolumeAvailable] is true.
+ *
  * The fast-changing playback position deliberately does NOT live here — it is exposed separately as
  * [MediaControllerManager.position]. Keeping it out means this snapshot only changes on real player
  * events (play/pause, track change, queue edits), so collectors high in the tree (the nav root, the
@@ -25,4 +28,6 @@ data class PlayerState(
     val hasNext: Boolean = false,
     val hasPrevious: Boolean = false,
     val volume: Float = 1f,
+    val systemVolume: Float = 0f,
+    val systemVolumeAvailable: Boolean = false,
 )

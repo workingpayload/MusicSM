@@ -27,25 +27,37 @@ class NowPlayingPublisher @Inject constructor(
 
     private var lastSignature: String? = null
 
-    fun publish(song: Song?, isPlaying: Boolean) {
+    /**
+     * @param resync the playhead jumped (seek, stall recovery) without the track or play state
+     * changing. The widget/tile don't show position so they're skipped, but the watch needs a
+     * fresh position anchor or its lyrics drift.
+     */
+    fun publish(song: Song?, isPlaying: Boolean, positionMs: Long = 0L, resync: Boolean = false) {
         val signature = "${song?.id}|${song?.title}|$isPlaying"
-        if (signature == lastSignature) return
+        if (signature == lastSignature) {
+            if (resync && song != null) publishToWear(song, isPlaying, positionMs)
+            return
+        }
         lastSignature = signature
 
         preferences.saveNowPlaying(song, isPlaying)
         NowPlayingWidget.updateAll(context, preferences.nowPlaying())
         requestTileUpdate()
-        publishToWear(song, isPlaying)
+        publishToWear(song, isPlaying, positionMs)
     }
 
     /** Mirror the state to a paired Wear OS watch (no-op without Play Services / a watch). */
-    private fun publishToWear(song: Song?, isPlaying: Boolean) {
+    private fun publishToWear(song: Song?, isPlaying: Boolean, positionMs: Long) {
         runCatching {
             val request = PutDataMapRequest.create(WearContract.PATH_STATE).apply {
                 dataMap.putString(WearContract.KEY_TITLE, song?.title.orEmpty())
                 dataMap.putString(WearContract.KEY_ARTIST, song?.artist.orEmpty())
+                dataMap.putString(WearContract.KEY_ARTWORK, song?.artworkUrl.orEmpty())
                 dataMap.putBoolean(WearContract.KEY_PLAYING, isPlaying)
                 dataMap.putBoolean(WearContract.KEY_HAS_TRACK, song != null)
+                dataMap.putLong(WearContract.KEY_DURATION, song?.durationMs ?: 0L)
+                // Anchor for the watch's lyric-sync clock: the position captured at publish time.
+                dataMap.putLong(WearContract.KEY_POSITION, positionMs.coerceAtLeast(0L))
                 // Forces a change event even when the same track is re-published.
                 dataMap.putLong(WearContract.KEY_UPDATED_AT, System.currentTimeMillis())
             }.asPutDataRequest().setUrgent()

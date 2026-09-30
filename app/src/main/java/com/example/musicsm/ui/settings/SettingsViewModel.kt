@@ -4,9 +4,13 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.motionart.MotionArtProvider
 import com.example.musicsm.data.prefs.AppPreferences
+import com.example.musicsm.domain.model.LyricsSource
 import com.example.musicsm.domain.repository.BackupRepository
+import com.example.musicsm.domain.repository.CachedSongsRepository
 import com.example.musicsm.domain.repository.DownloadRepository
+import com.example.musicsm.ui.player.MotionArtStyle
 import com.example.musicsm.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,7 +38,17 @@ data class SettingsUiState(
     val wifiOnlyDownloads: Boolean = false,
     val playbackSpeed: Float = 1f,
     val crossfadeMs: Int = 0,
+    val mixMode: Boolean = false,
     val appearance: AppearanceUiState = AppearanceUiState(),
+    val motionArt: MotionArtUiState = MotionArtUiState(),
+)
+
+/** The motion-cover toggles, grouped for the same `combine` arity reason as the appearance block. */
+data class MotionArtUiState(
+    val enabled: Boolean = true,
+    val wifiOnly: Boolean = true,
+    val style: MotionArtStyle = MotionArtStyle.FULL_SCREEN,
+    val source: MotionArtProvider = MotionArtProvider.AUTO,
 )
 
 /** The Appearance section's state, kept separate so the 5-flow `combine` limit stays workable. */
@@ -50,6 +64,12 @@ data class AppearanceUiState(
     val accentPickerEnabled: Boolean get() = !materialYou && !themeFromArtwork
 }
 
+/** A lyrics source as shown in Settings: its place in the order, and whether it is asked at all. */
+data class LyricsSourceItem(
+    val source: LyricsSource,
+    val enabled: Boolean,
+)
+
 /** One-shot results of a backup/restore, surfaced to the UI as a toast. */
 sealed interface BackupEvent {
     data object BackupSuccess : BackupEvent
@@ -64,6 +84,7 @@ class SettingsViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val downloadRepository: DownloadRepository,
     private val backupRepository: BackupRepository,
+    private val cachedSongsRepository: CachedSongsRepository,
 ) : ViewModel() {
 
     private val playbackToggles = combine(
@@ -86,13 +107,35 @@ class SettingsViewModel @Inject constructor(
         AppearanceUiState(ThemeMode.fromKey(mode), amoled, materialYou, fromArtwork, accent)
     }
 
+    private val motionArt = combine(
+        preferences.animatedArtwork,
+        preferences.animatedArtworkWifiOnly,
+        preferences.animatedArtworkStyle,
+        preferences.animatedArtworkSource,
+    ) { enabled, wifiOnly, style, source ->
+        MotionArtUiState(enabled, wifiOnly, MotionArtStyle.fromKey(style), MotionArtProvider.fromName(source))
+    }
+
+    // Crossfade length + Mix mode, paired so the outer combine stays within its typed arity.
+    private val playbackTuning = combine(
+        preferences.crossfadeMs,
+        preferences.mixMode,
+    ) { crossfade, mix -> crossfade to mix }
+
     val state: StateFlow<SettingsUiState> = combine(
         playbackToggles,
         preferences.playbackSpeed,
-        preferences.crossfadeMs,
+        playbackTuning,
         appearance,
-    ) { toggles, speed, crossfade, look ->
-        toggles.copy(playbackSpeed = speed, crossfadeMs = crossfade, appearance = look)
+        motionArt,
+    ) { toggles, speed, tuning, look, motion ->
+        toggles.copy(
+            playbackSpeed = speed,
+            crossfadeMs = tuning.first,
+            mixMode = tuning.second,
+            appearance = look,
+            motionArt = motion,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     val downloadCount: StateFlow<Int> = downloadRepository.downloads()
@@ -113,8 +156,81 @@ class SettingsViewModel @Inject constructor(
         .map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    val minimizeBarOnScroll: StateFlow<Boolean> = preferences.minimizeBarOnScroll
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), preferences.minimizeBarOnScrollNow)
+
+    fun setMinimizeBarOnScroll(value: Boolean) = preferences.setMinimizeBarOnScroll(value)
+
+    val searchVideos: StateFlow<Boolean> = preferences.searchVideos
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), preferences.searchVideosNow)
+
+    fun setSearchVideos(value: Boolean) = preferences.setSearchVideos(value)
+
+    val cacheSongs: StateFlow<Boolean> = preferences.cacheSongs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), preferences.cacheSongsNow)
+
+    fun setCacheSongs(value: Boolean) = preferences.setCacheSongs(value)
+
+    val cacheLimitMb: StateFlow<Int> = preferences.cacheLimitMb
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), preferences.cacheLimitMbNow)
+
+    private val _cacheBytes = MutableStateFlow(0L)
+    val cacheBytes: StateFlow<Long> = _cacheBytes.asStateFlow()
+
+    fun refreshCache() {
+        viewModelScope.launch { _cacheBytes.value = cachedSongsRepository.usedBytes() }
+    }
+
+    /** Saves the new budget and, if it shrank, evicts the oldest songs straight away. */
+    fun setCacheLimitMb(value: Int) {
+        preferences.setCacheLimitMb(value)
+        viewModelScope.launch {
+            cachedSongsRepository.trimToLimit()
+            _cacheBytes.value = cachedSongsRepository.usedBytes()
+        }
+    }
+
+    fun clearCache() {
+        viewModelScope.launch {
+            cachedSongsRepository.clear()
+            _cacheBytes.value = cachedSongsRepository.usedBytes()
+        }
+    }
+
+    val preferWordSyncedLyrics: StateFlow<Boolean> = preferences.preferWordSyncedLyrics
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), preferences.preferWordSyncedLyricsNow)
+
+    fun setPreferWordSyncedLyrics(value: Boolean) = preferences.setPreferWordSyncedLyrics(value)
+
+    /** Every lyrics source, in the order they are tried. */
+    val lyricsSources: StateFlow<List<LyricsSourceItem>> = combine(
+        preferences.lyricsSourceOrder,
+        preferences.disabledLyricsSources,
+    ) { order, disabled -> order.map { LyricsSourceItem(it, it !in disabled) } }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            preferences.lyricsSourceOrderNow.map {
+                LyricsSourceItem(it, it !in preferences.disabledLyricsSourcesNow)
+            },
+        )
+
+    fun setLyricsSourceEnabled(source: LyricsSource, enabled: Boolean) =
+        preferences.setLyricsSourceEnabled(source, enabled)
+
+    /** Moves [source] one place earlier ([delta] = -1) or later (+1) in the lyrics order. */
+    fun moveLyricsSource(source: LyricsSource, delta: Int) {
+        val order = preferences.lyricsSourceOrderNow.toMutableList()
+        val from = order.indexOf(source)
+        val to = from + delta
+        if (from < 0 || to !in order.indices) return
+        order.add(to, order.removeAt(from))
+        preferences.setLyricsSourceOrder(order)
+    }
+
     init {
         refreshStorage()
+        refreshCache()
     }
 
     fun refreshStorage() {
@@ -133,6 +249,8 @@ class SettingsViewModel @Inject constructor(
     fun setPlaybackSpeed(value: Float) = preferences.setPlaybackSpeed(value)
     fun setCrossfadeMs(value: Int) = preferences.setCrossfadeMs(value)
 
+    fun setMixMode(value: Boolean) = preferences.setMixMode(value)
+
     fun setThemeMode(mode: ThemeMode) = preferences.setThemeMode(mode.name)
     fun setAmoled(value: Boolean) = preferences.setAmoled(value)
 
@@ -146,6 +264,15 @@ class SettingsViewModel @Inject constructor(
         preferences.setThemeFromArtwork(value)
         if (value) preferences.setMaterialYou(false)
     }
+
+    fun setAnimatedArtwork(value: Boolean) = preferences.setAnimatedArtwork(value)
+
+    fun setAnimatedArtworkWifiOnly(value: Boolean) = preferences.setAnimatedArtworkWifiOnly(value)
+
+    fun setAnimatedArtworkStyle(value: MotionArtStyle) = preferences.setAnimatedArtworkStyle(value.name)
+
+    fun setAnimatedArtworkSource(value: MotionArtProvider) =
+        preferences.setAnimatedArtworkSource(value.name)
 
     /** Choosing an explicit accent turns off the automatic sources so the pick actually sticks. */
     fun setAccentColor(argb: Int) {

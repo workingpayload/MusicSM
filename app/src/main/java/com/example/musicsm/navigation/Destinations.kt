@@ -4,10 +4,10 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import android.net.Uri
 import com.example.musicsm.R
@@ -26,6 +26,7 @@ object Routes {
     const val LOCAL_PLAYLIST = "local_playlist/{playlistId}"
     const val IMPORT = "import"
     const val DOWNLOADS = "downloads"
+    const val CACHED = "cached"
     const val LOCAL = "local"
     const val SETTINGS = "settings"
     const val STATS = "stats"
@@ -45,7 +46,10 @@ object Routes {
     const val ARG_PLAYLIST_ID = "playlistId"
 }
 
-/** The three bottom-navigation tabs. */
+/**
+ * The main bottom-navigation tabs shown in the nav pill. Search is deliberately absent: it lives in
+ * its own detached pill beside the bar, so it is not a member here.
+ */
 enum class TopLevelDestination(
     val route: String,
     @param:StringRes val labelRes: Int,
@@ -54,5 +58,5 @@ enum class TopLevelDestination(
 ) {
     HOME(Routes.HOME, R.string.nav_listen, Icons.Filled.PlayCircle, Icons.Outlined.PlayCircle),
     LIBRARY(Routes.LIBRARY, R.string.nav_library, Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
-    SEARCH(Routes.SEARCH, R.string.nav_search, Icons.Filled.Search, Icons.Outlined.Search),
+    SETTINGS(Routes.SETTINGS, R.string.nav_settings, Icons.Filled.Settings, Icons.Outlined.Settings),
 }

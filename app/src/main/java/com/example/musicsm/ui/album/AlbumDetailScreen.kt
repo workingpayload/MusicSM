@@ -1,6 +1,6 @@
 package com.example.musicsm.ui.album
 
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,11 +47,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -57,17 +59,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicsm.R
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.ui.actions.SongOptionsSheet
-import com.example.musicsm.ui.components.ArtworkImage
+import com.example.musicsm.ui.components.ChromeScrim
 import com.example.musicsm.ui.components.ErrorState
+import com.example.musicsm.ui.components.HeroArtwork
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.components.rememberDominantColorState
+import com.example.musicsm.ui.components.rememberHeroZoom
 import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.CoralLight
-import com.example.musicsm.ui.theme.Lavender
 import com.example.musicsm.ui.theme.OnAccent
+import com.example.musicsm.ui.theme.asDeepTint
+import com.example.musicsm.ui.theme.isHueless
+import com.example.musicsm.ui.theme.onTint
 import com.example.musicsm.ui.theme.OnDarkVariant
 import com.example.musicsm.ui.theme.OverlayTint
 import com.example.musicsm.ui.theme.SurfaceHigh
@@ -83,106 +89,134 @@ fun AlbumDetailScreen(
     viewModel: AlbumDetailViewModel = hiltViewModel(),
     downloadViewModel: com.example.musicsm.ui.player.DownloadViewModel = hiltViewModel(),
 ) {
-    BackHandler { onBack() }
+    ScreenBackHandler { onBack() }
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val favorited by viewModel.favorited.collectAsStateWithLifecycle()
     val added by viewModel.added.collectAsStateWithLifecycle()
     var optionsSong by remember { mutableStateOf<Song?>(null) }
+    val artworkUrl = ui.artworkUrl ?: ui.songs.firstOrNull()?.artworkUrl
     val accent = rememberDominantColorState(
-        url = ui.artworkUrl ?: ui.songs.firstOrNull()?.artworkUrl,
+        url = artworkUrl,
         fallback = accentColorFor(ui.title),
     )
+    val listState = rememberLazyListState()
+    val (heroZoom, zoomModifier) = rememberHeroZoom()
 
-    // Ambient aurora backdrop (coral + lavender blooms), same as Home.
     // Palette tokens are composable reads, so they are hoisted out of the draw lambda.
     val backdrop = AppBackground
-    val bloom = Lavender
+    // Derived, not recomputed per draw: the conversion allocates, and the background repaints far
+    // more often than the cover behind it changes. A cover with no usable hue is left alone rather
+    // than deepened, because deepening grey only produces a muddier grey.
+    val tint by remember(backdrop) {
+        derivedStateOf {
+            val raw = accent.value
+            if (raw.isHueless()) backdrop else raw.asDeepTint()
+        }
+    }
+    val scrimProgress = remember(listState) {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (listState.firstVisibleItemScrollOffset / SCRIM_RAMP_PX).coerceIn(0f, 1f)
+            }
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(backdrop)
+                // Held flat over the top half, then eased out over the bottom. A single flat fill
+                // leaves a visible seam where the cover the tint came from stops and the plain
+                // track list starts; easing it turns that line into a deliberate wash.
                 drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(accent.value.copy(alpha = 0.22f), Color.Transparent),
-                        center = Offset(size.width * 0.12f, size.height * 0.04f),
-                        radius = size.width * 0.7f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(bloom.copy(alpha = 0.16f), Color.Transparent),
-                        center = Offset(size.width * 0.95f, size.height * 0.25f),
-                        radius = size.width * 0.7f,
+                    Brush.verticalGradient(
+                        0.0f to tint,
+                        0.5f to tint,
+                        1.0f to backdrop,
                     ),
                 )
             },
     ) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-            TopBar(onBack = onBack)
+        when {
+            ui.loading -> Box(Modifier.fillMaxSize()) {
+                CircularProgressIndicator(color = Coral, modifier = Modifier.align(Alignment.Center))
+            }
 
-            when {
-                ui.loading -> Box(Modifier.fillMaxSize()) {
-                    CircularProgressIndicator(color = Coral, modifier = Modifier.align(Alignment.Center))
+            ui.error != null -> Box(Modifier.fillMaxSize()) {
+                ErrorState(
+                    message = ui.error!!,
+                    onRetry = viewModel::retry,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+
+            else -> LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().then(zoomModifier),
+                contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarPadding.current),
+            ) {
+                item(key = "hero") {
+                    HeroArtwork(url = artworkUrl, scale = { heroZoom.scale })
                 }
-
-                ui.error != null -> Box(Modifier.fillMaxSize()) {
-                    ErrorState(
-                        message = ui.error!!,
-                        onRetry = viewModel::retry,
-                        modifier = Modifier.align(Alignment.Center),
+                item(key = "header") {
+                    AlbumHeader(
+                        ui = ui,
+                        tint = tint,
+                        playerViewModel = playerViewModel,
+                        favorited = favorited,
+                        added = added,
+                        onToggleFavorite = viewModel::toggleFavorite,
+                        onToggleAdd = viewModel::toggleAdd,
+                        onDownloadAll = { ui.songs.forEach(downloadViewModel::download) },
+                        modifier = Modifier.padding(horizontal = 20.dp),
                     )
                 }
-
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(
-                        start = 20.dp,
-                        end = 20.dp,
-                        bottom = 24.dp + LocalBottomBarPadding.current,
-                    ),
-                ) {
-                    item {
-                        AlbumHeader(
-                            ui = ui,
-                            accent = accent.value,
-                            playerViewModel = playerViewModel,
-                            favorited = favorited,
-                            added = added,
-                            onToggleFavorite = viewModel::toggleFavorite,
-                            onToggleAdd = viewModel::toggleAdd,
-                            onDownloadAll = { ui.songs.forEach(downloadViewModel::download) },
-                        )
-                    }
+                item {
+                    Text(
+                        stringResource(R.string.album_tracks),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = tint.onTint(emphasis = 0.5f),
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
+                    )
+                }
+                if (ui.songs.isEmpty()) {
                     item {
                         Text(
-                            stringResource(R.string.album_tracks),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
+                            stringResource(R.string.album_no_songs),
                             color = OnDarkVariant,
-                            modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                         )
                     }
-                    if (ui.songs.isEmpty()) {
-                        item { Text(stringResource(R.string.album_no_songs), color = OnDarkVariant, modifier = Modifier.padding(vertical = 8.dp)) }
-                    } else {
-                        itemsIndexed(ui.songs, key = { _, song -> song.id }) { index, song ->
-                            val isCurrent = playerState.currentSong?.id == song.id
-                            TrackRow(
-                                index = index + 1,
-                                title = song.title,
-                                artist = song.artist,
-                                duration = formatDuration(song.durationMs),
-                                isCurrent = isCurrent,
-                                isPlaying = isCurrent && playerState.isPlaying,
-                                onClick = { playerViewModel.play(ui.songs, index) },
-                                onLongClick = { optionsSong = song },
-                            )
-                        }
+                } else {
+                    itemsIndexed(ui.songs, key = { _, song -> song.id }) { index, song ->
+                        val isCurrent = playerState.currentSong?.id == song.id
+                        TrackRow(
+                            index = index + 1,
+                            title = song.title,
+                            artist = song.artist,
+                            duration = formatDuration(song.durationMs),
+                            isCurrent = isCurrent,
+                            isPlaying = isCurrent && playerState.isPlaying,
+                            onClick = { playerViewModel.play(ui.songs, index) },
+                            onLongClick = { optionsSong = song },
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
                     }
                 }
             }
         }
+
+        // Floating above the artwork rather than in a bar above it, so nothing pushes the hero
+        // down out from under the status bar.
+        ChromeScrim(
+            progress = { scrimProgress.value },
+            modifier = Modifier.align(Alignment.TopCenter).height(CHROME_SCRIM_HEIGHT),
+        )
+        TopBar(onBack = onBack, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding())
     }
 
     optionsSong?.let { song ->
@@ -195,63 +229,55 @@ fun AlbumDetailScreen(
 }
 
 @Composable
-private fun TopBar(onBack: () -> Unit) {
+private fun TopBar(onBack: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 12.dp),
+        modifier = modifier.fillMaxWidth().height(64.dp).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(OverlayTint.copy(alpha = 0.05f))
+                .background(OverlayTint.copy(alpha = 0.18f))
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBackIos,
                 contentDescription = stringResource(R.string.action_back),
-                tint = MaterialTheme.colorScheme.onBackground,
+                tint = Color.White,
                 modifier = Modifier.size(20.dp),
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Text(
-            stringResource(R.string.album_view_album),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
     }
 }
 
 @Composable
 private fun AlbumHeader(
     ui: AlbumDetailUiState,
-    accent: Color,
+    tint: Color,
     playerViewModel: PlayerViewModel,
     favorited: Boolean,
     added: Boolean,
     onToggleFavorite: () -> Unit,
     onToggleAdd: () -> Unit,
     onDownloadAll: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    // The cover is the page's background now, so the title block takes its contrast from the
+    // colour the cover produced rather than from the app's flat one.
+    val onTintHeading = tint.onTint(emphasis = 1f)
+    val onTintBody = tint.onTint(emphasis = 0.5f)
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ArtworkImage(
-            url = ui.artworkUrl,
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.padding(top = 8.dp).size(256.dp),
-        )
-
-        Spacer(Modifier.height(20.dp))
         Text(
             text = ui.title,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = onTintHeading,
+            textAlign = TextAlign.Center,
         )
         if (ui.artist.isNotBlank()) {
             Text(
@@ -259,6 +285,7 @@ private fun AlbumHeader(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = CoralLight,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -271,7 +298,7 @@ private fun AlbumHeader(
         Text(
             text = meta,
             style = MaterialTheme.typography.bodySmall,
-            color = OnDarkVariant,
+            color = onTintBody,
             modifier = Modifier.padding(top = 4.dp),
         )
 
@@ -413,9 +440,10 @@ private fun TrackRow(
     isPlaying: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(if (isCurrent) SurfaceHigh.copy(alpha = 0.8f) else Color.Transparent)
@@ -460,3 +488,15 @@ private fun TrackRow(
         )
     }
 }
+
+
+/**
+ * How far the cover has to scroll before the chrome is fully shaded.
+ *
+ * A raw pixel figure rather than a dp one: it is compared against a scroll offset, which is already
+ * in pixels, and converting per frame to compare two numbers is work for nothing.
+ */
+private const val SCRIM_RAMP_PX = 260f
+
+/** Tall enough to cover the status bar and the back button, and to fade out above the artwork. */
+private val CHROME_SCRIM_HEIGHT = 160.dp

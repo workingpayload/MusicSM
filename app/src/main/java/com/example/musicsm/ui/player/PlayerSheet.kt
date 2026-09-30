@@ -6,36 +6,27 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.dp
+import com.example.musicsm.ui.components.KeepScreenOn
+import com.example.musicsm.ui.components.LocalPlayerExpanded
 
 /**
  * Full-screen Now-Playing that lives permanently in the composition and slides up from the mini
  * player. [progress] is 0 when collapsed (off-screen) and 1 when fully expanded; reading it inside
  * [graphicsLayer] keeps the drag/animation on the layer thread (no recomposition), so opening and
- * collapsing stay smooth. Drag the grabber to dismiss.
+ * collapsing stay smooth. Drag down anywhere (or tap the chevron) to dismiss.
  */
 @Composable
 fun ExpandedPlayer(
@@ -50,6 +41,8 @@ fun ExpandedPlayer(
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     val lyricsState by viewModel.lyrics.collectAsStateWithLifecycle()
+    val lyricsOffsetMs by viewModel.lyricsOffsetMs.collectAsStateWithLifecycle()
+    val lyricsSync by viewModel.lyricsSync.collectAsStateWithLifecycle()
     val playerState by viewModel.state.collectAsStateWithLifecycle()
 
     // Back closes the open overlay (lyrics/queue) first, revealing Now Playing again.
@@ -87,17 +80,6 @@ fun ExpandedPlayer(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Visual grabber pill (drag handled by the whole sheet above).
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(top = 6.dp)
-                .size(width = 40.dp, height = 5.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Color.White.copy(alpha = 0.5f)),
-        )
-
         // In-sheet "Up Next" queue (Apple Music-style), instead of a separate nav screen.
         AnimatedVisibility(
             visible = showQueue,
@@ -120,6 +102,9 @@ fun ExpandedPlayer(
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         ) {
             val position by viewModel.position.collectAsStateWithLifecycle()
+            // Reading along: the display stays on while lyrics are on screen and the song plays.
+            // The player stays composed when collapsed, so lyrics left open behind it don't count.
+            KeepScreenOn(enabled = playerState.isPlaying && LocalPlayerExpanded.current)
             val smoothPos = rememberSmoothPosition(
                 positionMs = position,
                 isPlaying = playerState.isPlaying,
@@ -132,6 +117,13 @@ fun ExpandedPlayer(
                 onSeekMs = viewModel::seekToMs,
                 onClose = { showLyrics = false },
                 modifier = Modifier.fillMaxSize(),
+                lyricsOffsetMs = lyricsOffsetMs,
+                onAdjustLyricsOffset = viewModel::adjustLyricsOffset,
+                onSetLyricsOffset = viewModel::setLyricsOffset,
+                onResetLyricsOffset = viewModel::resetLyricsOffset,
+                lyricsSync = lyricsSync,
+                onSyncNow = viewModel::syncLyricsNow,
+                onAutoSync = viewModel::autoSyncLyrics,
             )
         }
     }

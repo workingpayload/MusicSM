@@ -1,6 +1,6 @@
 package com.example.musicsm.ui.stats
 
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -64,6 +64,7 @@ import com.example.musicsm.domain.model.StatsRange
 import com.example.musicsm.ui.components.ArtworkImage
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.currentLocale
+import com.example.musicsm.ui.components.rememberArtworkPx
 import com.example.musicsm.ui.theme.Coral
 import com.example.musicsm.ui.theme.Lavender
 import com.example.musicsm.ui.theme.OnAccent
@@ -91,7 +92,7 @@ fun StatsScreen(
     modifier: Modifier = Modifier,
     viewModel: StatsViewModel = hiltViewModel(),
 ) {
-    BackHandler { onBack() }
+    ScreenBackHandler { onBack() }
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val range by viewModel.range.collectAsStateWithLifecycle()
     var confirmClear by remember { mutableStateOf(false) }
@@ -407,6 +408,7 @@ private fun TopArtistsRow(artists: List<ArtistPlayCount>, onSearchArtist: (Strin
                 ArtworkImage(
                     url = artist.artworkUrl,
                     shape = CircleShape,
+                    targetSizePx = rememberArtworkPx(84.dp),
                     modifier = Modifier.size(84.dp),
                     contentDescription = artist.name,
                 )
@@ -448,7 +450,7 @@ private fun TopSongRow(rank: Int, entry: SongPlayCount, onClick: () -> Unit) {
             fontSize = 16.sp,
             modifier = Modifier.width(28.dp),
         )
-        ArtworkImage(url = entry.song.artworkUrl, modifier = Modifier.size(48.dp))
+        ArtworkImage(url = entry.song.artworkUrl, targetSizePx = rememberArtworkPx(48.dp), modifier = Modifier.size(48.dp))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(

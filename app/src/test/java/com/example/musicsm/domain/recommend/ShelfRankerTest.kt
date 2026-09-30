@@ -113,4 +113,56 @@ class ShelfRankerTest {
         assertEquals(4, ranked.size)
         assertTrue(ShelfRanker.rank(listOf(song("a")), TasteProfile(), limit = 0).isEmpty())
     }
+
+    @Test
+    fun `merging takes one track from each seed in turn`() {
+        val merged = ShelfRanker.interleave(
+            listOf(
+                listOf(song("a1"), song("a2"), song("a3")),
+                listOf(song("b1"), song("b2")),
+            ),
+            limit = 5,
+        )
+
+        assertEquals(listOf("a1", "b1", "a2", "b2", "a3"), merged.map { it.id })
+    }
+
+    @Test
+    fun `one prolific seed cannot fill the shelf before the others contribute`() {
+        val merged = ShelfRanker.interleave(
+            listOf(
+                (1..10).map { song("big$it") },
+                listOf(song("small")),
+            ),
+            limit = 3,
+        )
+
+        assertTrue("the quiet seed was crowded out", merged.any { it.id == "small" })
+    }
+
+    @Test
+    fun `a track several seeds agree on is promoted, not repeated`() {
+        val shared = song("shared")
+        val merged = ShelfRanker.interleave(
+            listOf(
+                listOf(song("a1"), shared),
+                listOf(shared, song("b2")),
+            ),
+            limit = 10,
+        )
+
+        assertEquals(listOf("a1", "shared", "b2"), merged.map { it.id })
+    }
+
+    @Test
+    fun `merging is deterministic and copes with empty input`() {
+        val lists = listOf(listOf(song("a")), emptyList(), listOf(song("b")))
+
+        assertEquals(
+            ShelfRanker.interleave(lists, limit = 5),
+            ShelfRanker.interleave(lists, limit = 5),
+        )
+        assertTrue(ShelfRanker.interleave(emptyList(), limit = 5).isEmpty())
+        assertTrue(ShelfRanker.interleave(lists, limit = 0).isEmpty())
+    }
 }

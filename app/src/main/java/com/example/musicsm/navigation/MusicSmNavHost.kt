@@ -11,8 +11,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.musicsm.ui.album.AlbumDetailScreen
 import com.example.musicsm.ui.artist.ArtistDetailScreen
+import com.example.musicsm.ui.components.isLowEndDevice
 import com.example.musicsm.ui.home.HomeScreen
+import com.example.musicsm.ui.theme.WithoutBounce
 import com.example.musicsm.ui.importer.ImportPlaylistScreen
+import com.example.musicsm.ui.library.CachedSongsScreen
 import com.example.musicsm.ui.library.LibraryScreen
 import com.example.musicsm.ui.library.LocalMusicScreen
 import com.example.musicsm.ui.library.PlaylistDetailScreen
@@ -33,7 +36,11 @@ fun MusicSmNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Routes.HOME,
 ) {
-    val dur = 300
+    // A push transition slides two whole screens past each other, so for its entire duration the
+    // device is drawing both. That is a reasonable trade on hardware that can also blur them, and
+    // a bad one on hardware that cannot, so the cheap devices get the destination immediately
+    // instead of getting it late and stuttering on the way.
+    val dur = if (isLowEndDevice()) 0 else 300
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -52,7 +59,18 @@ fun MusicSmNavHost(
         },
     ) {
         composable(Routes.HOME) {
-            HomeScreen(onPlaySongs = { songs, index -> playerViewModel.play(songs, index) })
+            // Home keeps Android's stretch; the iOS-style bounce is for every other screen.
+            WithoutBounce {
+                HomeScreen(
+                    onPlaySongs = { songs, index -> playerViewModel.play(songs, index) },
+                    onOpenAlbum = { navController.navigate(Routes.album(it)) },
+                    onOpenArtist = { navController.navigate(Routes.artist(it)) },
+                    // A remote playlist is a cover plus a track list, which is exactly what the album
+                    // detail screen renders; the source resolves either kind of id.
+                    onOpenPlaylist = { navController.navigate(Routes.album(it)) },
+                    onOpenCached = { navController.navigate(Routes.CACHED) },
+                )
+            }
         }
         composable(Routes.SEARCH) {
             SearchScreen(
@@ -73,6 +91,7 @@ fun MusicSmNavHost(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenStats = { navController.navigate(Routes.STATS) },
                 onOpenLocal = { navController.navigate(Routes.LOCAL) },
+                onOpenCached = { navController.navigate(Routes.CACHED) },
             )
         }
         composable(
@@ -161,6 +180,15 @@ fun MusicSmNavHost(
             popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
         ) {
             DownloadsScreen(playerViewModel = playerViewModel, onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = Routes.CACHED,
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(dur)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(dur)) },
+        ) {
+            CachedSongsScreen(playerViewModel = playerViewModel, onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.ALBUM,

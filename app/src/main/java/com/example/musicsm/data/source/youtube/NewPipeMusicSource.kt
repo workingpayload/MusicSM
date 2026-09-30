@@ -13,6 +13,9 @@ import com.example.musicsm.domain.model.Song
 import com.example.musicsm.domain.source.MusicSource
 import org.schabi.newpipe.extractor.Image
 import org.schabi.newpipe.extractor.InfoItem
+import org.schabi.newpipe.extractor.ListExtractor
+import org.schabi.newpipe.extractor.MediaFormat
+import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.channel.ChannelInfoItem
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo
@@ -22,6 +25,8 @@ import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
@@ -45,24 +50,45 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
         return HomeFeed(sections)
     }
 
-    override suspend fun search(query: String): SearchResults {
+    /** NewPipe builds its shelves from fixed searches, so there is nothing to page through. */
+    override suspend fun moreHomeShelves(continuation: String): HomeFeed = HomeFeed()
+
+    override suspend fun search(query: String, includeVideos: Boolean): SearchResults {
         if (query.isBlank()) return SearchResults()
         val songs = runCatching { searchSongs(query, limit = 20) }.getOrDefault(emptyList())
         val albums = runCatching { searchAlbums(query, limit = 12) }.getOrDefault(emptyList())
         val artists = runCatching { searchArtists(query, limit = 12) }.getOrDefault(emptyList())
-        return SearchResults(songs = songs, albums = albums, artists = artists)
+        // Everything on YouTube, not just released music: unreleased tracks, covers, live sets.
+        val videos = if (!includeVideos) {
+            emptyList()
+        } else {
+            runCatching {
+                searchItems(query, YoutubeSearchQueryHandlerFactory.VIDEOS, limit = 20)
+                    .filterIsInstance<StreamInfoItem>()
+                    .mapNotNull { it.toSongOrNull() }
+                    .distinctBy { it.id }
+            }.getOrDefault(emptyList())
+        }
+        return SearchResults(songs = songs, albums = albums, artists = artists, videos = videos)
     }
+
+    override suspend fun searchSongs(query: String): List<Song> =
+        if (query.isBlank()) emptyList() else runCatching { searchSongs(query, limit = 20) }.getOrDefault(emptyList())
 
     override suspend fun album(id: String): Album {
         // [id] is the YouTube playlist URL for the album.
         val info = PlaylistInfo.getInfo(youtube, id)
+        val title = info.name.orEmpty()
+        val uploader = info.uploaderName.orEmpty()
         val songs = info.relatedItems
             .filterIsInstance<StreamInfoItem>()
-            .mapNotNull { it.toSongOrNull() }
+            .mapNotNull { it.toSongOrNull(artistFallback = uploader, albumFallback = title) }
+        val artist = uploader.ifBlank { songs.firstOrNull { it.artist.isNotBlank() }?.artist.orEmpty() }
+            .ifBlank { title }
         return Album(
             id = id,
-            title = info.name.orEmpty(),
-            artist = info.uploaderName.orEmpty(),
+            title = title,
+            artist = artist,
             artworkUrl = bestThumbnail(info.thumbnails),
             songs = songs,
         )
@@ -118,14 +144,41 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
 
     override suspend fun playlist(id: String): Playlist {
         val info = PlaylistInfo.getInfo(youtube, id)
+        val title = info.name.orEmpty()
         val songs = info.relatedItems
             .filterIsInstance<StreamInfoItem>()
-            .mapNotNull { it.toSongOrNull() }
+            .mapNotNull { it.toSongOrNull(albumFallback = title) }
+        return Playlist(
+            id = id,
+            name = title,
+            artworkUrl = bestThumbnail(info.thumbnails),
+            songs = songs,
+        )
+    }
+
+    override suspend fun fullPlaylist(id: String, maxTracks: Int): Playlist {
+        // A bare list id (what YouTube Music hands out) is turned into the link NewPipe reads.
+        val url = if ("://" in id) id else PLAYLIST_URL + id
+        val info = PlaylistInfo.getInfo(youtube, url)
+        val items = ArrayList<StreamInfoItem>(info.relatedItems)
+        val limit = if (info.streamCount == ListExtractor.ITEM_COUNT_INFINITE) {
+            minOf(maxTracks, MAX_INFINITE_PLAYLIST_TRACKS)
+        } else {
+            maxTracks
+        }
+        var next = info.nextPage
+        while (items.size < limit && Page.isValid(next)) {
+            currentCoroutineContext().ensureActive()
+            val page = PlaylistInfo.getMoreItems(youtube, url, next)
+            if (page.items.isEmpty()) break
+            items += page.items
+            next = page.nextPage
+        }
         return Playlist(
             id = id,
             name = info.name.orEmpty(),
             artworkUrl = bestThumbnail(info.thumbnails),
-            songs = songs,
+            songs = items.take(limit).mapNotNull { it.toSongOrNull() },
         )
     }
 
@@ -160,13 +213,12 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
 
     override suspend fun resolveStream(songId: String): PlayableStream {
         val info = StreamInfo.getInfo(youtube, watchUrl(songId))
-        // Highest-bitrate audio: prefer a directly-playable progressive stream, else any with a URL.
-        val playable = info.audioStreams.filter { !it.content.isNullOrEmpty() }
-        val audio = playable
-            .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-            .maxByOrNull(AudioStream::getAverageBitrate)
-            ?: playable.maxByOrNull(AudioStream::getAverageBitrate)
-            ?: error("No audio stream for $songId")
+        val audio = pickAudioStream(
+            streams = info.audioStreams.filter { !it.content.isNullOrEmpty() },
+            isAac = { it.format == MediaFormat.M4A },
+            isProgressive = { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP },
+            bitrate = AudioStream::getAverageBitrate,
+        ) ?: error("No audio stream for $songId")
         return PlayableStream(
             url = audio.content,
             mimeType = audio.format?.mimeType,
@@ -237,33 +289,31 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
         return items.take(limit)
     }
 
-    private fun StreamInfoItem.toSongOrNull(): Song? {
+    private fun StreamInfoItem.toSongOrNull(
+        artistFallback: String? = null,
+        albumFallback: String? = null,
+    ): Song? {
         val videoId = runCatching { youtube.streamLHFactory.getId(url) }.getOrNull() ?: return null
+        val albumTitle = albumFallback.nonBlankOrNull()
+        val artistName = uploaderName.nonBlankOrNull()
+            ?: artistFallback.nonBlankOrNull()
+            ?: albumTitle.orEmpty()
         return Song(
             id = videoId,
             title = name.orEmpty(),
-            artist = uploaderName.orEmpty(),
+            artist = artistName,
+            album = albumTitle,
             artworkUrl = bestThumbnail(thumbnails),
             durationMs = if (duration > 0) duration * 1000 else 0L,
         )
     }
 
+    private fun String?.nonBlankOrNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
     private fun bestThumbnail(images: List<Image>?): String? {
         val url = images?.maxByOrNull { it.height.takeIf { h -> h > 0 } ?: it.width }?.url
             ?: images?.lastOrNull()?.url
-        return url?.let(::upscaleThumbnail)
-    }
-
-    /**
-     * YouTube thumbnails are often served small (blurry when shown large). The Google image CDN
-     * URLs are resizable, so request a larger square; i.ytimg URLs get bumped to hqdefault.
-     */
-    private fun upscaleThumbnail(url: String): String = when {
-        "googleusercontent.com" in url || "ggpht.com" in url ->
-            "${url.substringBefore("=")}=w1080-h1080-l90-rj"
-        "i.ytimg.com/vi/" in url ->
-            url.replace(Regex("/[^/]+\\.jpg"), "/hqdefault.jpg")
-        else -> url
+        return YouTubeArtwork.resizeOrNull(url, YouTubeArtwork.CANONICAL)
     }
 
     private fun watchUrl(videoId: String) = "https://www.youtube.com/watch?v=$videoId"
@@ -285,6 +335,8 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
 
     companion object {
         private const val STREAM_TTL_MS = 5 * 60 * 60 * 1000L // ~5h; googlevideo URLs expire ~6h
+        private const val PLAYLIST_URL = "https://www.youtube.com/playlist?list="
+        private const val MAX_INFINITE_PLAYLIST_TRACKS = 50
 
         // Artist page: scan wide because the uploader filter throws a lot away, then trim.
         private const val ARTIST_SCAN_LIMIT = 80

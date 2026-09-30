@@ -1,7 +1,7 @@
 package com.example.musicsm.ui.library
 
 import android.content.Intent
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -91,7 +91,7 @@ fun PlaylistDetailScreen(
     var showDelete by remember { mutableStateOf(false) }
     var showShare by remember { mutableStateOf(false) }
     var optionsSong by remember { mutableStateOf<com.example.musicsm.domain.model.Song?>(null) }
-    BackHandler { onBack() }
+    ScreenBackHandler { onBack() }
     val context = LocalContext.current
     val pickCover = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),

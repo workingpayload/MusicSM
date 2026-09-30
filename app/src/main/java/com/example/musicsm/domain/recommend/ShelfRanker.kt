@@ -54,6 +54,36 @@ object ShelfRanker {
         return TasteProfiles.capPerArtist(filtered, maxPerArtist).take(limit)
     }
 
+    /**
+     * Merge per-seed candidate lists by taking one from each in turn.
+     *
+     * The alternative — concatenating them and shuffling — throws away two useful things. Each
+     * provider list is already in relevance order, and the seeds themselves are ranked, so a flat
+     * shuffle buries the best match behind noise and makes the result different on every call even
+     * though nothing about the listener changed. Round-robin keeps both orderings *and* guarantees
+     * that one prolific seed cannot fill the shelf before the others get a turn.
+     *
+     * Duplicates are resolved in favour of the earliest position, so a track that several seeds
+     * agree on is promoted rather than repeated.
+     */
+    fun interleave(lists: List<List<Song>>, limit: Int): List<Song> {
+        if (limit <= 0) return emptyList()
+        val nonEmpty = lists.filter { it.isNotEmpty() }
+        if (nonEmpty.isEmpty()) return emptyList()
+
+        val merged = LinkedHashMap<String, Song>()
+        val longest = nonEmpty.maxOf { it.size }
+        for (round in 0 until longest) {
+            for (list in nonEmpty) {
+                val song = list.getOrNull(round) ?: continue
+                if (song.id.isBlank()) continue
+                merged.putIfAbsent(song.id, song)
+            }
+            if (merged.size >= limit) break
+        }
+        return merged.values.take(limit)
+    }
+
     private fun clean(
         candidates: List<Song>,
         limit: Int,

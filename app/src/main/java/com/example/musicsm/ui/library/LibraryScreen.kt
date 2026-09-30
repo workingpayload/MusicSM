@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.OfflineBolt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Settings
@@ -79,6 +80,7 @@ fun LibraryScreen(
     onOpenSettings: () -> Unit,
     onOpenStats: () -> Unit,
     onOpenLocal: () -> Unit,
+    onOpenCached: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -157,6 +159,7 @@ fun LibraryScreen(
             ) {
                 CategoryRow(Icons.Filled.Favorite, Coral, stringResource(R.string.library_liked_songs), "${liked.size}", onOpenLiked)
                 CategoryRow(Icons.Filled.LibraryMusic, Teal, stringResource(R.string.library_local_files), "", onOpenLocal)
+                CategoryRow(Icons.Filled.OfflineBolt, Coral, stringResource(R.string.cached_title), "", onOpenCached)
                 CategoryRow(Icons.Filled.BarChart, Lavender, stringResource(R.string.stats_open), "", onOpenStats)
             }
         }

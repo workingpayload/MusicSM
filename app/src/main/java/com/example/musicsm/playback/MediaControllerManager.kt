@@ -51,6 +51,7 @@ class MediaControllerManager @Inject constructor(
     // The volume the user set. The crossfade/sleep-timer transiently write the player's actual
     // volume; the UI slider tracks this instead so it doesn't jump around during transitions.
     private var userVolume = 1f
+    private var lastSystemVolumeIndex: Int? = null
 
     private var lastSavedSignature: String? = null
     private var lastSaveAtMs = 0L
@@ -171,6 +172,33 @@ class MediaControllerManager @Inject constructor(
         pushState()
     }
 
+    @Suppress("DEPRECATION")
+    fun setSystemVolume(fraction: Float) {
+        val c = controller ?: return
+        if (!c.isCommandAvailable(Player.COMMAND_GET_DEVICE_VOLUME)) return
+        val info = c.deviceInfo
+        val min = info.minVolume
+        val max = info.maxVolume
+        if (max <= min) return
+        val canSetWithFlags = c.isCommandAvailable(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)
+        val canSet = canSetWithFlags || c.isCommandAvailable(Player.COMMAND_SET_DEVICE_VOLUME)
+        if (!canSet) return
+
+        val target = systemVolumeIndex(fraction, min, max)
+        val muted = c.isDeviceMuted
+        if (lastSystemVolumeIndex == target && !(muted && target > min)) return
+
+        if (muted && target > min && c.isCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+            c.setDeviceMuted(false, 0)
+        }
+        if (canSetWithFlags) {
+            c.setDeviceVolume(target, 0)
+        } else {
+            c.setDeviceVolume(target)
+        }
+        lastSystemVolumeIndex = target
+    }
+
     fun toggleShuffle() {
         val c = controller ?: return
         c.shuffleModeEnabled = !c.shuffleModeEnabled
@@ -229,6 +257,19 @@ class MediaControllerManager @Inject constructor(
         // Refresh the position immediately on events too, so seeks/track changes reflect at once
         // instead of waiting for the next tick.
         _position.value = c.currentPosition.coerceAtLeast(0L)
+        val canGetDeviceVolume = c.isCommandAvailable(Player.COMMAND_GET_DEVICE_VOLUME)
+        val canSetDeviceVolume = c.isCommandAvailable(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS) ||
+            c.isCommandAvailable(Player.COMMAND_SET_DEVICE_VOLUME)
+        val systemVolumeInfo = if (canGetDeviceVolume) {
+            val info = c.deviceInfo
+            val index = c.deviceVolume
+            lastSystemVolumeIndex = index
+            systemVolumeFraction(index, info.minVolume, info.maxVolume, c.isDeviceMuted) to
+                (canSetDeviceVolume && info.maxVolume > info.minVolume)
+        } else {
+            lastSystemVolumeIndex = null
+            0f to false
+        }
         _state.value = PlayerState(
             isConnected = true,
             currentSong = c.currentMediaItem?.let(MediaItemMapper::toSong),
@@ -244,6 +285,8 @@ class MediaControllerManager @Inject constructor(
             hasPrevious = c.hasPreviousMediaItem(),
             // Report the user's volume, not the live player volume (which the crossfade ramps).
             volume = userVolume,
+            systemVolume = systemVolumeInfo.first,
+            systemVolumeAvailable = systemVolumeInfo.second,
         )
         persistQueue()
     }

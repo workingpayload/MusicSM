@@ -1,6 +1,7 @@
 package com.example.musicsm.data.repository
 
 import com.example.musicsm.domain.model.Album
+import com.example.musicsm.domain.model.AlbumAudio
 import com.example.musicsm.domain.model.Artist
 import com.example.musicsm.domain.model.BrowseTile
 import com.example.musicsm.domain.model.HomeFeed
@@ -8,6 +9,7 @@ import com.example.musicsm.domain.model.PlayableStream
 import com.example.musicsm.domain.model.Playlist
 import com.example.musicsm.domain.model.SearchResults
 import com.example.musicsm.domain.model.Song
+import com.example.musicsm.domain.recommend.ShelfRanker
 import com.example.musicsm.domain.repository.MusicRepository
 import com.example.musicsm.domain.source.MusicSource
 import kotlinx.coroutines.Dispatchers
@@ -26,10 +28,25 @@ class MusicRepositoryImpl @Inject constructor(
 
     private val streamCache = ConcurrentHashMap<String, PlayableStream>()
 
+    /** Found once per track: it doesn't change, and it costs two requests. Unknown isn't kept. */
+    private val albumAudioCache = ConcurrentHashMap<String, AlbumAudio>()
+
+    override suspend fun albumAudio(songId: String): AlbumAudio = withContext(Dispatchers.IO) {
+        albumAudioCache[songId] ?: source.albumAudio(songId).also {
+            if (it != AlbumAudio.Unknown) albumAudioCache[songId] = it
+        }
+    }
+
     override suspend fun homeFeed(): HomeFeed = withContext(Dispatchers.IO) { source.homeFeed() }
 
-    override suspend fun search(query: String): SearchResults =
-        withContext(Dispatchers.IO) { source.search(query) }
+    override suspend fun moreHomeShelves(continuation: String): HomeFeed =
+        withContext(Dispatchers.IO) { source.moreHomeShelves(continuation) }
+
+    override suspend fun search(query: String, includeVideos: Boolean): SearchResults =
+        withContext(Dispatchers.IO) { source.search(query, includeVideos) }
+
+    override suspend fun searchSongs(query: String): List<Song> =
+        withContext(Dispatchers.IO) { source.searchSongs(query) }
 
     override suspend fun album(id: String): Album = withContext(Dispatchers.IO) { source.album(id) }
 
@@ -37,6 +54,9 @@ class MusicRepositoryImpl @Inject constructor(
 
     override suspend fun playlist(id: String): Playlist =
         withContext(Dispatchers.IO) { source.playlist(id) }
+
+    override suspend fun fullPlaylist(id: String, maxTracks: Int): Playlist =
+        withContext(Dispatchers.IO) { source.fullPlaylist(id, maxTracks) }
 
     override suspend fun relatedTo(songId: String): List<Song> =
         withContext(Dispatchers.IO) { source.relatedTo(songId) }
@@ -51,16 +71,54 @@ class MusicRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             if (seeds.isEmpty()) return@withContext emptyList()
             val seedIds = seeds.mapTo(HashSet()) { it.id }
-            // Fan out to relatedTo for each seed in parallel, then merge + dedup.
-            coroutineScope {
+            // Fan out to relatedTo for each seed in parallel, then merge round-robin so that each
+            // seed contributes evenly and the same history always produces the same shelf.
+            val perSeed = coroutineScope {
                 seeds.map { seed ->
                     async { runCatching { source.relatedTo(seed.id) }.getOrDefault(emptyList()) }
                 }.awaitAll()
-            }.flatten()
-                .filter { it.id !in seedIds }
+            }
+            ShelfRanker.interleave(
+                perSeed.map { list -> list.filter { it.id !in seedIds } },
+                limit,
+            )
+        }
+
+    /**
+     * Grows a radio queue outward from [seed] in two hops.
+     *
+     * The first hop is what YouTube Music considers adjacent to the seed. That alone is a short,
+     * very tight list, so the strongest few of those results are then expanded in turn and the
+     * batches merged round-robin: the queue stays anchored to the seed near the front and widens
+     * as it plays, which is what makes it last rather than loop.
+     *
+     * The hops are sequential because the second depends on the first, but each hop fans out in
+     * parallel, so the whole thing costs about two requests' worth of waiting.
+     */
+    override suspend fun radio(seed: Song, limit: Int, exclude: Set<String>): List<Song> =
+        withContext(Dispatchers.IO) {
+            val blocked = exclude + seed.id
+            val first = runCatching { source.relatedTo(seed.id) }
+                .getOrDefault(emptyList())
+                .filter { it.id !in blocked }
                 .distinctBy { it.id }
-                .shuffled()
-                .take(limit)
+            if (first.isEmpty()) return@withContext emptyList()
+            if (first.size >= limit) return@withContext first.take(limit)
+
+            val branchSeeds = first.take(RADIO_BRANCHES)
+            val branchIds = branchSeeds.mapTo(HashSet(blocked)) { it.id }
+            val branches = coroutineScope {
+                branchSeeds.map { branch ->
+                    async {
+                        runCatching { source.relatedTo(branch.id) }
+                            .getOrDefault(emptyList())
+                            .filter { it.id !in branchIds }
+                    }
+                }.awaitAll()
+            }
+
+            // The seed's own results lead; the wider material is merged in behind them.
+            ShelfRanker.interleave(listOf(first) + branches, limit)
         }
 
     override suspend fun resolveStream(songId: String): PlayableStream = withContext(Dispatchers.IO) {
@@ -80,6 +138,12 @@ class MusicRepositoryImpl @Inject constructor(
 
     companion object {
         private const val REFRESH_MARGIN_MS = 60_000L
+
+        /**
+         * How many early results get expanded when building a radio queue. Each one is a request,
+         * so this trades a wider queue against how long the first track waits to start.
+         */
+        private const val RADIO_BRANCHES = 4
 
         private val BROWSE_TILES = listOf(
             BrowseTile("pop", "Pop", 0xFF1E3264, "pop hits"),

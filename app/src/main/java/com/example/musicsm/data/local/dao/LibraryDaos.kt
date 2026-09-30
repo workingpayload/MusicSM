@@ -22,6 +22,9 @@ interface SongDao {
 
     @Query("SELECT * FROM songs WHERE songId = :id")
     suspend fun getById(id: String): SongEntity?
+
+    @Query("SELECT * FROM songs WHERE songId IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<SongEntity>
 }
 
 @Dao

@@ -83,6 +83,7 @@ fun SongOptionsSheet(
     playerViewModel: PlayerViewModel,
     onDismiss: () -> Unit,
     extraAction: SongExtraAction? = null,
+    extraActions: List<SongExtraAction> = emptyList(),
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     downloadViewModel: DownloadViewModel = hiltViewModel(),
     actionsViewModel: SongActionsViewModel = hiltViewModel(),
@@ -201,17 +202,20 @@ fun SongOptionsSheet(
                     onDismiss()
                 }
 
-                if (extraAction != null) {
+                val extras = listOfNotNull(extraAction) + extraActions
+                if (extras.isNotEmpty()) {
                     HorizontalDivider(
                         color = OverlayTint.copy(alpha = 0.08f),
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
+                }
+                extras.forEach { action ->
                     ActionRow(
-                        icon = extraAction.icon,
-                        label = extraAction.label,
-                        tint = if (extraAction.destructive) MaterialTheme.colorScheme.error else null,
+                        icon = action.icon,
+                        label = action.label,
+                        tint = if (action.destructive) MaterialTheme.colorScheme.error else null,
                     ) {
-                        extraAction.onAction()
+                        action.onAction()
                         onDismiss()
                     }
                 }

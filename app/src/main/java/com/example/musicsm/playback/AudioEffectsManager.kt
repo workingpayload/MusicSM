@@ -33,9 +33,15 @@ data class EqualizerCapabilities(
 /**
  * Owns the `android.media.audiofx` effects attached to the player's audio session.
  *
- * The session id is generated up front by [PlaybackService] and handed to [attach], so the
- * effects exist before the first track loads and the capabilities are known to the settings UI
- * even while nothing is playing.
+ * Effects are created **only while the user has them switched on**. An `audiofx` effect stays
+ * bound to the output chain it was built for, and on many devices that chain does not survive the
+ * move to Bluetooth A2DP: the route switches, the player keeps reporting progress, and nothing
+ * comes out of the headphones while the phone speaker still works. A disabled effect is still an
+ * *attached* effect, so "effects off" has to mean no effect objects exist at all rather than
+ * objects sitting there with `enabled = false`.
+ *
+ * The consequence is that [capabilities] is only populated while the effects are live, so the
+ * equalizer UI fills in its band layout once the feature is enabled rather than before.
  *
  * Every device implements a different subset of these effects, and several OEM ROMs throw from
  * the constructors outright, so each effect is created defensively and simply stays absent when
@@ -56,29 +62,46 @@ class AudioEffectsManager @Inject constructor(
     private val _capabilities = MutableStateFlow(EqualizerCapabilities())
     val capabilities: StateFlow<EqualizerCapabilities> = _capabilities.asStateFlow()
 
-    /** Creates the effects for [audioSessionId] and applies the persisted settings. */
+    /**
+     * Binds to [audioSessionId]. Any effects held against a previous session are torn down first,
+     * so a route change that hands us a new session does not leave the old chain behind.
+     */
     @Synchronized
     fun attach(audioSessionId: Int) {
-        if (audioSessionId == sessionId && equalizer != null) return
-        release()
-        sessionId = audioSessionId
-        if (audioSessionId == AudioEffect.ERROR_BAD_VALUE) return
-
-        equalizer = create("Equalizer") { Equalizer(PRIORITY, audioSessionId) }
-        bassBoost = create("BassBoost") { BassBoost(PRIORITY, audioSessionId) }
-        virtualizer = create("Virtualizer") { Virtualizer(PRIORITY, audioSessionId) }
-        loudness = create("LoudnessEnhancer") { LoudnessEnhancer(audioSessionId) }
-
-        _capabilities.value = readCapabilities()
-        apply()
+        if (audioSessionId <= 0) return
+        if (audioSessionId != sessionId) {
+            releaseEffects()
+            sessionId = audioSessionId
+        }
+        sync()
     }
 
     /**
-     * Pushes the current preferences onto the live effects. Safe to call from a settings flow
-     * collector on every change.
+     * Pushes the current preferences onto the effects, creating or tearing them down as the
+     * enabled flag changes. Safe to call from a settings flow collector on every change.
      */
     @Synchronized
     fun apply() {
+        sync()
+    }
+
+    private fun sync() {
+        if (!preferences.effectsEnabledNow) {
+            releaseEffects()
+            return
+        }
+        if (sessionId <= 0) return
+        if (equalizer == null && bassBoost == null && virtualizer == null && loudness == null) {
+            equalizer = create("Equalizer") { Equalizer(PRIORITY, sessionId) }
+            bassBoost = create("BassBoost") { BassBoost(PRIORITY, sessionId) }
+            virtualizer = create("Virtualizer") { Virtualizer(PRIORITY, sessionId) }
+            loudness = create("LoudnessEnhancer") { LoudnessEnhancer(sessionId) }
+            _capabilities.value = readCapabilities()
+        }
+        applySettings()
+    }
+
+    private fun applySettings() {
         val enabled = preferences.effectsEnabledNow
 
         equalizer?.let { eq ->
@@ -129,6 +152,11 @@ class AudioEffectsManager @Inject constructor(
 
     @Synchronized
     fun release() {
+        releaseEffects()
+        sessionId = AudioEffect.ERROR_BAD_VALUE
+    }
+
+    private fun releaseEffects() {
         runCatching { equalizer?.release() }
         runCatching { bassBoost?.release() }
         runCatching { virtualizer?.release() }
@@ -137,7 +165,6 @@ class AudioEffectsManager @Inject constructor(
         bassBoost = null
         virtualizer = null
         loudness = null
-        sessionId = AudioEffect.ERROR_BAD_VALUE
         _capabilities.value = EqualizerCapabilities()
     }
 
@@ -163,10 +190,12 @@ class AudioEffectsManager @Inject constructor(
      * third-party effect panel can attach to it. Paired with [notifySessionClosed].
      */
     fun notifySessionOpen(audioSessionId: Int) {
+        if (audioSessionId <= 0) return
         broadcast(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION, audioSessionId)
     }
 
     fun notifySessionClosed(audioSessionId: Int) {
+        if (audioSessionId <= 0) return
         broadcast(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION, audioSessionId)
     }
 

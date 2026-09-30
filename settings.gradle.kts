@@ -25,5 +25,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "MusicSM"
 include(":app")
+include(":innertube")
+include(":motionart")
 include(":wear")
  

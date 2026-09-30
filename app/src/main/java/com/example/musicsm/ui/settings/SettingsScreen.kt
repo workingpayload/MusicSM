@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
+import com.example.musicsm.ui.components.ScreenBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
@@ -40,9 +40,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Coffee
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -74,6 +77,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicsm.R
+import com.example.motionart.MotionArtProvider
+import com.example.musicsm.domain.model.LyricsSource
+import com.example.musicsm.ui.player.MotionArtStyle
 import com.example.musicsm.data.prefs.AppPreferences
 import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.currentLocale
@@ -104,12 +110,20 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     updateViewModel: UpdateViewModel = hiltViewModel(),
 ) {
-    BackHandler { onBack() }
+    ScreenBackHandler { onBack() }
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val updateState by updateViewModel.state.collectAsStateWithLifecycle()
     val downloadCount by viewModel.downloadCount.collectAsStateWithLifecycle()
     val storageBytes by viewModel.storageBytes.collectAsStateWithLifecycle()
     val recentSearchCount by viewModel.recentSearchCount.collectAsStateWithLifecycle()
+    val minimizeBarOnScroll by viewModel.minimizeBarOnScroll.collectAsStateWithLifecycle()
+    val searchVideos by viewModel.searchVideos.collectAsStateWithLifecycle()
+    val cacheSongs by viewModel.cacheSongs.collectAsStateWithLifecycle()
+    val cacheLimitMb by viewModel.cacheLimitMb.collectAsStateWithLifecycle()
+    val cacheBytes by viewModel.cacheBytes.collectAsStateWithLifecycle()
+    var confirmClearCache by remember { mutableStateOf(false) }
+    val preferWordSyncedLyrics by viewModel.preferWordSyncedLyrics.collectAsStateWithLifecycle()
+    val lyricsSources by viewModel.lyricsSources.collectAsStateWithLifecycle()
     var confirmClearDownloads by remember { mutableStateOf(false) }
     var showSupport by remember { mutableStateOf(false) }
 
@@ -253,6 +267,14 @@ fun SettingsScreen(
                     onValueChange = { viewModel.setCrossfadeMs((it * 1000).roundToInt()) },
                 )
             }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_mix_title),
+                    subtitle = stringResource(R.string.settings_mix_subtitle),
+                    checked = ui.mixMode,
+                    onCheckedChange = viewModel::setMixMode,
+                )
+            }
 
             item { SettingsSection(stringResource(R.string.settings_section_appearance)) }
             item {
@@ -295,8 +317,113 @@ fun SettingsScreen(
                     onSelect = viewModel::setAccentColor,
                 )
             }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_minimize_bar_title),
+                    subtitle = stringResource(R.string.settings_minimize_bar_subtitle),
+                    checked = minimizeBarOnScroll,
+                    onCheckedChange = viewModel::setMinimizeBarOnScroll,
+                )
+            }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_motion_art_title),
+                    subtitle = stringResource(R.string.settings_motion_art_subtitle),
+                    checked = ui.motionArt.enabled,
+                    onCheckedChange = viewModel::setAnimatedArtwork,
+                )
+            }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_motion_art_wifi_title),
+                    subtitle = stringResource(R.string.settings_motion_art_wifi_subtitle),
+                    checked = ui.motionArt.wifiOnly,
+                    onCheckedChange = viewModel::setAnimatedArtworkWifiOnly,
+                    enabled = ui.motionArt.enabled,
+                )
+            }
+            item {
+                MotionArtStylePicker(
+                    selected = ui.motionArt.style,
+                    enabled = ui.motionArt.enabled,
+                    onSelect = viewModel::setAnimatedArtworkStyle,
+                )
+            }
+            item {
+                MotionArtSourcePicker(
+                    selected = ui.motionArt.source,
+                    enabled = ui.motionArt.enabled,
+                    onSelect = viewModel::setAnimatedArtworkSource,
+                )
+            }
+
+            item { SettingsSection(stringResource(R.string.settings_section_lyrics)) }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_lyrics_prefer_word_title),
+                    subtitle = stringResource(R.string.settings_lyrics_prefer_word_subtitle),
+                    checked = preferWordSyncedLyrics,
+                    onCheckedChange = viewModel::setPreferWordSyncedLyrics,
+                )
+            }
+            item {
+                LyricsSourcesCard(
+                    items = lyricsSources,
+                    onToggle = viewModel::setLyricsSourceEnabled,
+                    onMove = viewModel::moveLyricsSource,
+                )
+            }
+
+            item { SettingsSection(stringResource(R.string.settings_section_search)) }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_search_videos_title),
+                    subtitle = stringResource(R.string.settings_search_videos_subtitle),
+                    checked = searchVideos,
+                    onCheckedChange = viewModel::setSearchVideos,
+                )
+            }
 
             item { SettingsSection(stringResource(R.string.settings_section_downloads)) }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_cache_songs_title),
+                    subtitle = stringResource(R.string.settings_cache_songs_subtitle),
+                    checked = cacheSongs,
+                    onCheckedChange = viewModel::setCacheSongs,
+                )
+            }
+            item {
+                val limits = AppPreferences.CACHE_LIMITS_MB
+                // Held locally while dragging; saved (and trimmed) only when the thumb is released.
+                var dragIndex by remember { mutableStateOf<Int?>(null) }
+                val savedIndex = limits.indexOfFirst { it >= cacheLimitMb }.takeIf { it >= 0 } ?: limits.lastIndex
+                val index = dragIndex ?: savedIndex
+                SettingsSlider(
+                    title = stringResource(R.string.settings_cache_limit_title),
+                    subtitle = stringResource(
+                        R.string.settings_cache_limit_subtitle,
+                        formatBytes(cacheBytes),
+                        formatBytes(limits[index] * 1024L * 1024L),
+                    ),
+                    value = index.toFloat(),
+                    valueRange = 0f..limits.lastIndex.toFloat(),
+                    steps = limits.size - 2,
+                    onValueChange = { dragIndex = it.roundToInt().coerceIn(0, limits.lastIndex) },
+                    onValueChangeFinished = {
+                        dragIndex?.let { viewModel.setCacheLimitMb(limits[it]) }
+                        dragIndex = null
+                    },
+                )
+            }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_cache_clear_title),
+                    subtitle = stringResource(R.string.settings_cache_clear_subtitle, formatBytes(cacheBytes)),
+                    destructive = true,
+                    onClick = { confirmClearCache = true },
+                )
+            }
             item {
                 SettingsSwitch(
                     title = stringResource(R.string.settings_wifi_only_title),
@@ -419,6 +546,25 @@ fun SettingsScreen(
         )
     }
 
+    if (confirmClearCache) {
+        AlertDialog(
+            onDismissRequest = { confirmClearCache = false },
+            title = { Text(stringResource(R.string.settings_cache_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_cache_clear_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearCache()
+                        confirmClearCache = false
+                    },
+                ) { Text(stringResource(R.string.action_clear)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearCache = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
     if (showSupport) {
         SupportDialog(onDismiss = { showSupport = false })
     }
@@ -482,7 +628,7 @@ private fun BuyMeACoffeeCard(onClick: () -> Unit) {
                 }
             }
             Icon(
-                imageVector = Icons.Filled.Coffee,
+                imageVector = Icons.Filled.LocalDrink,
                 contentDescription = null,
                 tint = OnAccent,
                 modifier = Modifier
@@ -519,7 +665,7 @@ private fun SupportDialog(onDismiss: () -> Unit) {
     val params = "pa=${Uri.encode(UPI_VPA)}&pn=${Uri.encode(UPI_NAME)}&cu=INR"
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${stringResource(R.string.settings_coffee_title)} ☕") },
+        title = { Text("${stringResource(R.string.settings_coffee_title)} 🥤") },
         text = {
             Column {
                 Text(
@@ -651,6 +797,96 @@ private fun SettingsSwitch(
     }
 }
 
+/**
+ * Where lyrics come from, in the order they are tried. Each source can be switched off or moved;
+ * the first one with lyrics timed to the playing recording wins.
+ */
+@Composable
+private fun LyricsSourcesCard(
+    items: List<LyricsSourceItem>,
+    onToggle: (LyricsSource, Boolean) -> Unit,
+    onMove: (LyricsSource, Int) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceLow)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Text(
+            stringResource(R.string.settings_lyrics_sources_title),
+            style = MaterialTheme.typography.bodyLarge,
+            color = OnDark,
+        )
+        Text(
+            stringResource(R.string.settings_lyrics_sources_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        items.forEachIndexed { index, item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${index + 1}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (item.enabled) Coral else OnDarkVariant,
+                    modifier = Modifier.width(20.dp),
+                )
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .alpha(if (item.enabled) 1f else 0.45f),
+                ) {
+                    Text(item.source.label, style = MaterialTheme.typography.bodyMedium, color = OnDark)
+                    Text(
+                        lyricsSourceDetail(item.source),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OnDarkVariant,
+                    )
+                }
+                IconButton(onClick = { onMove(item.source, -1) }, enabled = index > 0) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowUp,
+                        contentDescription = stringResource(R.string.settings_lyrics_move_up, item.source.label),
+                        tint = if (index > 0) OnDark else OnDarkVariant.copy(alpha = 0.3f),
+                    )
+                }
+                IconButton(onClick = { onMove(item.source, 1) }, enabled = index < items.lastIndex) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowDown,
+                        contentDescription = stringResource(R.string.settings_lyrics_move_down, item.source.label),
+                        tint = if (index < items.lastIndex) OnDark else OnDarkVariant.copy(alpha = 0.3f),
+                    )
+                }
+                Switch(
+                    checked = item.enabled,
+                    onCheckedChange = { onToggle(item.source, it) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Coral),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun lyricsSourceDetail(source: LyricsSource): String = when (source) {
+    LyricsSource.APPLE_MUSIC -> stringResource(R.string.settings_lyrics_source_apple)
+    LyricsSource.BINI_LYRICS -> stringResource(R.string.settings_lyrics_source_bini)
+    LyricsSource.LYRICS_PLUS -> stringResource(R.string.settings_lyrics_source_lyricsplus)
+    LyricsSource.SIMPMUSIC -> stringResource(R.string.settings_lyrics_source_simpmusic)
+    LyricsSource.LRCLIB -> stringResource(R.string.settings_lyrics_source_lrclib)
+    LyricsSource.KUGOU -> stringResource(R.string.settings_lyrics_source_kugou)
+    LyricsSource.UNISON -> stringResource(R.string.settings_lyrics_source_unison)
+    LyricsSource.YOUTUBE_MUSIC -> stringResource(R.string.settings_lyrics_source_youtube)
+}
+
 /** Segmented System / Light / Dark selector. */@Composable
 private fun ThemeModePicker(selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
     val labels = mapOf(
@@ -693,6 +929,133 @@ private fun ThemeModePicker(selected: ThemeMode, onSelect: (ThemeMode) -> Unit) 
             }
         }
     }
+}
+
+/**
+ * Which catalog cover loops come from.
+ *
+ * Coverage differs per catalog rather than overlapping, so "Auto" tries each in turn and is what
+ * almost everyone should leave this on; the explicit picks are for listeners who want one
+ * catalog's loops specifically and accept the misses that come with giving the others up.
+ */
+@Composable
+private fun MotionArtSourcePicker(
+    selected: MotionArtProvider,
+    enabled: Boolean,
+    onSelect: (MotionArtProvider) -> Unit,
+) {
+    val alpha = if (enabled) 1f else 0.4f
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceLow)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .alpha(alpha),
+    ) {
+        Text(
+            stringResource(R.string.settings_motion_art_source_title),
+            style = MaterialTheme.typography.bodyLarge,
+            color = OnDark,
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            MotionArtProvider.entries.forEach { provider ->
+                val active = provider == selected
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (active) Coral else OverlayTint.copy(alpha = 0.08f))
+                        .clickable(enabled = enabled) { onSelect(provider) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        motionArtSourceLabel(provider),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        color = if (active) OnAccent else OnDarkVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Where the cover loop plays: inside the album card, borderless across the top of the player
+ * (Apple Music style), or across the whole player.
+ */
+@Composable
+private fun MotionArtStylePicker(
+    selected: MotionArtStyle,
+    enabled: Boolean,
+    onSelect: (MotionArtStyle) -> Unit,
+) {
+    val alpha = if (enabled) 1f else 0.4f
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceLow)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .alpha(alpha),
+    ) {
+        Text(
+            stringResource(R.string.settings_motion_art_style_title),
+            style = MaterialTheme.typography.bodyLarge,
+            color = OnDark,
+        )
+        Text(
+            stringResource(
+                when (selected) {
+                    MotionArtStyle.CARD -> R.string.settings_motion_art_card_subtitle
+                    MotionArtStyle.EDGE -> R.string.settings_motion_art_edge_subtitle
+                    MotionArtStyle.FULL_SCREEN -> R.string.settings_motion_art_full_subtitle
+                },
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = OnDarkVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                MotionArtStyle.CARD to R.string.settings_motion_art_style_card,
+                MotionArtStyle.EDGE to R.string.settings_motion_art_style_edge,
+                MotionArtStyle.FULL_SCREEN to R.string.settings_motion_art_style_full,
+            ).forEach { (value, label) ->
+                val active = value == selected
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (active) Coral else OverlayTint.copy(alpha = 0.08f))
+                        .clickable(enabled = enabled) { onSelect(value) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(label),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        color = if (active) OnAccent else OnDarkVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Catalog names are trademarks and stay as-is; only the automatic option is translated. */
+@Composable
+private fun motionArtSourceLabel(provider: MotionArtProvider): String = when (provider) {
+    MotionArtProvider.AUTO -> stringResource(R.string.settings_motion_art_source_auto)
+    MotionArtProvider.APPLE -> "Apple"
+    MotionArtProvider.TIDAL -> "TIDAL"
+    MotionArtProvider.VIVI -> "Vivi"
 }
 
 /** Swatch grid for the accent override, with a "default" entry that clears it. */
@@ -818,6 +1181,7 @@ private fun SettingsSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
     onValueChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
@@ -832,6 +1196,7 @@ private fun SettingsSlider(
         Slider(
             value = value,
             onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             steps = steps,
             thumb = {

@@ -69,6 +69,18 @@ class StatsRepositoryImpl @Inject constructor(
 
     override suspend fun clear() = statsDao.clear()
 
+    override suspend fun forgottenFavorites(limit: Int): List<SongPlayCount> {
+        if (limit <= 0) return emptyList()
+        val staleBefore = LocalDate.now(ZoneId.systemDefault())
+            .minusWeeks(FORGOTTEN_STALE_WEEKS)
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+        return statsDao
+            .forgottenFavorites(staleBefore, FORGOTTEN_MIN_PLAYS, limit)
+            .map { SongPlayCount(it.song.toSong(), it.playCount) }
+    }
+
     private data class Totals(
         val plays: Int,
         val totalMs: Long,
@@ -95,6 +107,16 @@ class StatsRepositoryImpl @Inject constructor(
 
     private companion object {
         const val TOP_LIMIT = 25
+
+        /**
+         * How quiet a track has to go before it counts as forgotten. Six weeks is long enough to
+         * clear a holiday or a burnt-out obsession, but short enough that the shelf refills.
+         */
+        const val FORGOTTEN_STALE_WEEKS = 6L
+
+        /** Fewer plays than this and it was never a favourite, just something that went past. */
+        const val FORGOTTEN_MIN_PLAYS = 3
+
         val DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
 }

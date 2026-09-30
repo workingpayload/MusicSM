@@ -1,8 +1,14 @@
 package com.example.musicsm.domain.model
 
-/** Ordered list of shelves shown on the Home screen. */
+/**
+ * Ordered list of shelves shown on the Home screen.
+ *
+ * [continuation] is an opaque cursor for the next batch of shelves, or null when the provider has
+ * nothing further. The Home screen uses it to keep loading as the page is scrolled.
+ */
 data class HomeFeed(
     val sections: List<HomeSection> = emptyList(),
+    val continuation: String? = null,
 )
 
 data class HomeSection(

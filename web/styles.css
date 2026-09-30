@@ -260,7 +260,7 @@ h2 {
     display: none;
   }
 
-  /* Keep the label on phones too, just tighter — the coffee cup alone isn't obvious. */
+  /* Keep the label on phones too, just tighter — the cup icon alone isn't obvious. */
   .nav-support {
     padding: 8px 12px;
     font-size: 13px;

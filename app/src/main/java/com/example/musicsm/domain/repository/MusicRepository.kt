@@ -1,6 +1,7 @@
 package com.example.musicsm.domain.repository
 
 import com.example.musicsm.domain.model.Album
+import com.example.musicsm.domain.model.AlbumAudio
 import com.example.musicsm.domain.model.Artist
 import com.example.musicsm.domain.model.BrowseTile
 import com.example.musicsm.domain.model.HomeFeed
@@ -15,10 +16,23 @@ import com.example.musicsm.domain.model.Song
  */
 interface MusicRepository {
     suspend fun homeFeed(): HomeFeed
-    suspend fun search(query: String): SearchResults
+
+    /** The next batch of home shelves for a cursor from a previous [homeFeed]. */
+    suspend fun moreHomeShelves(continuation: String): HomeFeed
+
+    /** Songs, albums and artists for [query], plus videos when [includeVideos] (the Search screen). */
+    suspend fun search(query: String, includeVideos: Boolean = false): SearchResults
+
+    /** Songs only, for matching many tracks by name (playlist import). */
+    suspend fun searchSongs(query: String): List<Song>
+
     suspend fun album(id: String): Album
     suspend fun artist(id: String): Artist
     suspend fun playlist(id: String): Playlist
+
+    /** Every track of a YouTube / YouTube Music playlist, up to [maxTracks] (for importing it). */
+    suspend fun fullPlaylist(id: String, maxTracks: Int): Playlist
+
     suspend fun relatedTo(songId: String): List<Song>
 
     /** Metadata for a single track id (deep links, inbound shares). */
@@ -33,6 +47,18 @@ interface MusicRepository {
      */
     suspend fun recommendations(seeds: List<Song>, limit: Int): List<Song>
 
+    /**
+     * A long radio queue grown from a single track.
+     *
+     * One hop of "related to this" is only ever a couple of dozen songs and all of it sits very
+     * close to the seed, so a queue built that way is both short and repetitive. This widens the
+     * net by expanding outward from the strongest early results as well, giving a queue that can
+     * play for hours and drifts somewhere instead of circling.
+     *
+     * [exclude] holds ids already queued, so a top-up never re-adds what is still waiting to play.
+     */
+    suspend fun radio(seed: Song, limit: Int, exclude: Set<String> = emptySet()): List<Song>
+
     suspend fun resolveStream(songId: String): PlayableStream
 
     /**
@@ -40,6 +66,12 @@ interface MusicRepository {
      * Used to recover from a URL that expired or was rejected mid-playback before its cached TTL.
      */
     fun invalidateStream(songId: String)
+
+    /**
+     * Whether [songId] is its release's own audio, another cut of it (music video, upload), or
+     * unknown. Lyrics are timed to the release's audio, so this is what they get lined up against.
+     */
+    suspend fun albumAudio(songId: String): AlbumAudio
 
     /** Static curated genre/mood tiles for the Search landing screen. */
     fun browseTiles(): List<BrowseTile>

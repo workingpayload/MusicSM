@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "generated_at": "2026-09-06T00:00:00Z",
+  "generated_at": "2026-09-25T22:15:00Z",
   "checkpoint": "on-demand /codemap",
-  "file_count": 54,
-  "module_count": 12,
-  "git_sha": null,
-  "git": false,
-  "hot_files_window_days": null
+  "file_count": 220,
+  "module_count": 5,
+  "git_sha": "147caa6",
+  "git": true,
+  "hot_files_window_days": 30
 }

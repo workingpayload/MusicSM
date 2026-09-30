@@ -13,4 +13,6 @@
 /captures
 .externalNativeBuild
 .cxx
+/innertube
+/motionart
 local.properties

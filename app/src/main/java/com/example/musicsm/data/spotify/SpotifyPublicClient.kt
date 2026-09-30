@@ -1,5 +1,7 @@
 package com.example.musicsm.data.spotify
 
+import com.example.musicsm.data.importer.ImportedPlaylist
+import com.example.musicsm.data.importer.ImportedTrack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -7,21 +9,6 @@ import okhttp3.Request
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
-
-/** A single track's search-friendly fields. */
-data class SpotifyTrack(
-    val title: String,
-    val artist: String,
-) {
-    val searchQuery: String get() = "$artist $title".trim()
-}
-
-/** A public Spotify playlist read from its share link (name + cover + tracks). */
-data class PublicPlaylist(
-    val name: String,
-    val coverUrl: String?,
-    val tracks: List<SpotifyTrack>,
-)
 
 /**
  * Reads a **public** Spotify playlist from its share link without the Web API (which 403s for
@@ -32,7 +19,7 @@ data class PublicPlaylist(
 class SpotifyPublicClient @Inject constructor(
     private val client: OkHttpClient,
 ) {
-    suspend fun fetchPlaylist(link: String): PublicPlaylist = withContext(Dispatchers.IO) {
+    suspend fun fetchPlaylist(link: String): ImportedPlaylist = withContext(Dispatchers.IO) {
         val id = extractPlaylistId(link) ?: error("That doesn't look like a Spotify playlist link")
         val html = fetchEmbed(id)
         val nextData = extractNextData(html) ?: error("Couldn't read the playlist (is it public?)")
@@ -59,7 +46,7 @@ class SpotifyPublicClient @Inject constructor(
         return runCatching { JSONObject(html.substring(start, end)) }.getOrNull()
     }
 
-    private fun parse(nextData: JSONObject): PublicPlaylist {
+    private fun parse(nextData: JSONObject): ImportedPlaylist {
         val entity = nextData
             .optJSONObject("props")
             ?.optJSONObject("pageProps")
@@ -81,10 +68,10 @@ class SpotifyPublicClient @Inject constructor(
                 val t = list.optJSONObject(i) ?: continue
                 val title = t.optString("title").ifBlank { continue }
                 val artist = t.optString("subtitle") // comma-separated artist names
-                add(SpotifyTrack(title = title, artist = artist))
+                add(ImportedTrack(title = title, artist = artist, durationMs = t.optLong("duration")))
             }
         }
-        return PublicPlaylist(name, cover, tracks)
+        return ImportedPlaylist(name, cover, tracks)
     }
 
     private fun extractPlaylistId(link: String): String? = extractSpotifyPlaylistId(link)
