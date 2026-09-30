@@ -18,12 +18,22 @@ const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 export const REPO = process.env.GITHUB_REPO || 'workingpayload/MusicSM';
 export const COUNTER_KEY = 'musicsm:downloads:total';
 
+// MusicSM Desktop ships from its own repo. Its installers' downloads are added to the GitHub total,
+// so the page counts both apps. DESKTOP_GITHUB_REPO=none leaves them out.
+const desktopRepoEnv = (process.env.DESKTOP_GITHUB_REPO || '').trim();
+export const DESKTOP_REPO =
+  desktopRepoEnv.toLowerCase() === 'none' ? null : desktopRepoEnv || 'workingpayload/MusicSM-Desktop';
+
 // GitHub resets an asset's `download_count` to 0 whenever the APK is deleted and re-uploaded, or a
 // release is recreated — so a naive sum across releases drops on every such publish. These two keys
 // let us keep a durable lifetime figure that never goes backwards: BASELINE is the running sum of
 // every GitHub total that was later wiped, and LAST_SEEN is the most recent GitHub total observed.
 export const BASELINE_KEY = 'musicsm:downloads:baseline';
 export const LAST_SEEN_KEY = 'musicsm:downloads:githubseen';
+// The same pair for the desktop installers, kept apart so a reset in one repo can't be mistaken for
+// (or hidden by) growth in the other.
+export const DESKTOP_BASELINE_KEY = 'musicsm:desktop:downloads:baseline';
+export const DESKTOP_LAST_SEEN_KEY = 'musicsm:desktop:downloads:githubseen';
 
 /**
  * Whether a Redis store is wired up.
@@ -88,11 +98,20 @@ export async function recordDownload(assetName) {
 export async function reconcileGithubTotal(currentTotal) {
   // Manual bump that needs no store: just an env var. e.g. DOWNLOADS_BASELINE=133 shows 133 more.
   const envOffset = Number(process.env.DOWNLOADS_BASELINE || 0) || 0;
+  return reconcile(currentTotal, BASELINE_KEY, LAST_SEEN_KEY, envOffset);
+}
+
+/** [reconcileGithubTotal] for the desktop installers, on their own keys and with no env offset. */
+export function reconcileDesktopTotal(currentTotal) {
+  return reconcile(currentTotal, DESKTOP_BASELINE_KEY, DESKTOP_LAST_SEEN_KEY, 0);
+}
+
+async function reconcile(currentTotal, baselineKey, lastSeenKey, envOffset) {
   if (!kvConfigured) return currentTotal + envOffset;
   try {
     const out = await kvFetch('/pipeline', [
-      ['GET', BASELINE_KEY],
-      ['GET', LAST_SEEN_KEY],
+      ['GET', baselineKey],
+      ['GET', lastSeenKey],
     ]);
     const baseline = Number(out?.[0]?.result ?? 0) || 0;
     const lastSeen = Number(out?.[1]?.result ?? 0) || 0;
@@ -102,10 +121,10 @@ export async function reconcileGithubTotal(currentTotal) {
     if (currentTotal < lastSeen) {
       // A reset happened since last time: preserve the count that GitHub just threw away.
       newBaseline = baseline + lastSeen;
-      writes.push(['SET', BASELINE_KEY, String(newBaseline)]);
+      writes.push(['SET', baselineKey, String(newBaseline)]);
     }
     if (currentTotal !== lastSeen) {
-      writes.push(['SET', LAST_SEEN_KEY, String(currentTotal)]);
+      writes.push(['SET', lastSeenKey, String(currentTotal)]);
     }
     if (writes.length) await kvFetch('/pipeline', writes);
 
@@ -125,7 +144,7 @@ export async function reconcileGithubTotal(currentTotal) {
  * Capped at 100 releases, which is GitHub's maximum page size. Beyond that the totals would
  * silently undercount and this would need real pagination.
  */
-export async function fetchReleases() {
+export async function fetchReleases(repo = REPO) {
   const headers = {
     Accept: 'application/vnd.github+json',
     'User-Agent': 'musicsm-landing-page',
@@ -135,7 +154,7 @@ export async function fetchReleases() {
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
 
   const res = await fetch(
-    `https://api.github.com/repos/${REPO}/releases?per_page=100`,
+    `https://api.github.com/repos/${repo}/releases?per_page=100`,
     { headers },
   );
   if (res.status === 404) return [];
@@ -170,9 +189,40 @@ export function apkAssets(release) {
  * single publish.
  */
 export function totalApkDownloads(releases) {
+  return sumDownloads(releases, apkAssets);
+}
+
+// The Windows MSI and macOS DMG today, plus the other formats a desktop build could add.
+const INSTALLER = /\.(msi|exe|dmg|pkg|deb|rpm|appimage)$/i;
+
+/** MusicSM Desktop's installers in a release of its repo. */
+export function desktopAssets(release) {
+  return (release?.assets ?? []).filter((a) => INSTALLER.test(a.name));
+}
+
+/** Lifetime desktop installer downloads across every release of the desktop repo. */
+export function totalDesktopDownloads(releases) {
+  return sumDownloads(releases, desktopAssets);
+}
+
+function sumDownloads(releases, assetsOf) {
   return releases.reduce(
-    (total, release) =>
-      total + apkAssets(release).reduce((n, a) => n + (a.download_count || 0), 0),
+    (total, release) => total + assetsOf(release).reduce((n, a) => n + (a.download_count || 0), 0),
     0,
   );
+}
+
+/**
+ * MusicSM Desktop's lifetime downloads, reset-proofed like the APK total: 0 when no desktop repo is
+ * configured or it has no releases yet (GitHub 404s a repo that doesn't exist), and `null` when it
+ * can't be read right now. Never throws — the Android figure must not depend on the desktop repo.
+ */
+export async function desktopDownloads() {
+  if (!DESKTOP_REPO) return 0;
+  try {
+    const releases = await fetchReleases(DESKTOP_REPO);
+    return await reconcileDesktopTotal(totalDesktopDownloads(releases));
+  } catch {
+    return null;
+  }
 }

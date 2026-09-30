@@ -33,7 +33,7 @@ Two numbers are shown, because neither one is a superset of the other:
 
 | Counter | Source | What it means |
 | --- | --- | --- |
-| **Downloads from GitHub** | GitHub's `download_count` | Every APK fetch across **every release ever published**, however it was reached. Ground truth for the file, and impossible to reset or inflate from here. Counted lifetime rather than per-version deliberately: scoping it to the newest release would reset the number to zero on every publish. |
+| **Downloads from GitHub** | GitHub's `download_count` | Every APK fetch across **every release ever published**, however it was reached — plus every MusicSM Desktop installer (`.msi`, `.dmg`) from the desktop repo's releases (see below). Ground truth for the files, and impossible to reset or inflate from here. Counted lifetime rather than per-version deliberately: scoping it to the newest release would reset the number to zero on every publish. |
 | **Downloads from this page** | `INCR` in Redis | Clicks that actually started on this page, all time. |
 
 `/api/download` increments the counter and then **302s to GitHub** rather than proxying the file.
@@ -43,6 +43,19 @@ already does it well, and proxying would hide the download from GitHub's own cou
 `?id=` is matched against the assets of *every* release, so a link to an older version still
 resolves to that exact build. An unrecognised id falls back to the newest APK rather than
 erroring.
+
+### MusicSM Desktop in the total
+
+The desktop app is released from its own repo (`DESKTOP_GITHUB_REPO`, default
+`workingpayload/MusicSM-Desktop`), and `/api/release` adds its installers' downloads to the GitHub
+figure. `downloads: { android, desktop }` in the response carries the split, which the page shows
+when you hover the card. The download button still only offers the APK.
+
+- Until that repo exists (or while it is private) GitHub answers 404, which counts as 0.
+- If it can't be read (rate limit, outage), the Android figure is served alone with a one-minute
+  cache instead of five, so the total catches up quickly.
+- The desktop count has its own reset protection keys (below), so the Android history is untouched.
+- `DOWNLOADS_OVERRIDE` still sets the exact number shown, desktop included.
 
 ### Turning on the page counter
 
@@ -61,6 +74,10 @@ Keys used:
 
 - `musicsm:downloads:total`
 - `musicsm:downloads:asset:<file name>`
+- `musicsm:downloads:baseline`, `musicsm:downloads:githubseen` — keep the APK total from dropping
+  when GitHub resets an asset's count
+- `musicsm:desktop:downloads:baseline`, `musicsm:desktop:downloads:githubseen` — the same for the
+  desktop installers
 
 ## Environment variables
 
@@ -69,6 +86,7 @@ All optional.
 | Variable | Default | Why you might set it |
 | --- | --- | --- |
 | `GITHUB_REPO` | `workingpayload/MusicSM` | Point the page at a different repo. |
+| `DESKTOP_GITHUB_REPO` | `workingpayload/MusicSM-Desktop` | Where MusicSM Desktop is released, if you name that repo differently; `none` leaves desktop downloads out of the total. |
 | `GITHUB_TOKEN` | — | Lifts GitHub's 60-requests-per-hour unauthenticated limit, which serverless functions share across a region. The 5-minute edge cache normally keeps usage far below it, so this is only worth adding if you see `502`s from `/api/release`. |
 | `KV_REST_API_URL` | — | Set for you by the Upstash integration. |
 | `KV_REST_API_TOKEN` | — | Set for you by the Upstash integration. |

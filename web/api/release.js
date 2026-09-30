@@ -1,4 +1,12 @@
-import { REPO, apkAssets, fetchReleases, latestStable, reconcileGithubTotal, totalApkDownloads } from './_lib.js';
+import {
+  REPO,
+  apkAssets,
+  desktopDownloads,
+  fetchReleases,
+  latestStable,
+  reconcileGithubTotal,
+  totalApkDownloads,
+} from './_lib.js';
 
 /**
  * Latest release metadata plus lifetime download totals.
@@ -10,27 +18,46 @@ import { REPO, apkAssets, fetchReleases, latestStable, reconcileGithubTotal, tot
  */
 export default async function handler(req, res) {
   try {
-    const releases = await fetchReleases();
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=86400');
+    // DOWNLOADS_OVERRIDE (env) forces an exact number to display, so the desktop repo isn't read.
+    const override = process.env.DOWNLOADS_OVERRIDE;
+    const overridden = override != null && override !== '';
+    const [releases, desktop] = await Promise.all([
+      fetchReleases(),
+      overridden ? null : desktopDownloads(),
+    ]);
+    // A desktop count that couldn't be read leaves the total short: don't hold that for long.
+    res.setHeader(
+      'Cache-Control',
+      !overridden && desktop === null
+        ? 's-maxage=60, stale-while-revalidate=300'
+        : 's-maxage=300, stale-while-revalidate=86400',
+    );
 
     // Counted across every release, including ones older than the current build, so the figure
-    // is "how many people have installed MusicSM" rather than "how many took the newest build".
-    // DOWNLOADS_OVERRIDE (env) forces an exact number to display; otherwise the real total is
-    // reconciled through a baseline (env offset + optional Redis) so it never drops on a reset.
-    const override = process.env.DOWNLOADS_OVERRIDE;
-    const githubDownloads = override != null && override !== ''
-      ? Math.max(0, Number(override) || 0)
-      : await reconcileGithubTotal(totalApkDownloads(releases));
+    // is "how many people have installed MusicSM" rather than "how many took the newest build" —
+    // and across both apps: the Android APKs plus MusicSM Desktop's installers. Each app's total
+    // is reconciled through its own baseline (env offset + optional Redis) so it never drops on
+    // a reset.
+    let githubDownloads;
+    let downloads = null;
+    if (overridden) {
+      githubDownloads = Math.max(0, Number(override) || 0);
+    } else {
+      const android = await reconcileGithubTotal(totalApkDownloads(releases));
+      githubDownloads = android + (desktop ?? 0);
+      downloads = { android, desktop };
+    }
     const release = latestStable(releases);
 
     if (!release) {
-      return res.status(200).json({ repo: REPO, release: null, githubDownloads });
+      return res.status(200).json({ repo: REPO, release: null, githubDownloads, downloads });
     }
 
     const assets = apkAssets(release);
     return res.status(200).json({
       repo: REPO,
       githubDownloads,
+      downloads,
       release: {
         version: release.tag_name,
         name: release.name || release.tag_name,

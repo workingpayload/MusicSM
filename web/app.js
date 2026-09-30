@@ -129,6 +129,22 @@ function renderRelease(data) {
   }
 }
 
+/** The GitHub total covers both apps; the note says so, and hovering the card shows the split. */
+function describeSplit(downloads) {
+  const card = el("stat-github")?.parentElement;
+  if (!card || !downloads || !Number.isFinite(downloads.android)) return;
+  const parts = [`Android ${numberFormat.format(downloads.android)}`];
+  if (Number.isFinite(downloads.desktop)) {
+    parts.push(`Desktop ${numberFormat.format(downloads.desktop)}`);
+  }
+  card.title = parts.join(" · ");
+
+  const note = card.querySelector(".note");
+  if (note && downloads.desktop > 0) {
+    note.textContent = "Android and desktop, every release, all time, counted by GitHub itself";
+  }
+}
+
 async function loadRelease() {
   try {
     const res = await fetch("/api/release");
@@ -139,6 +155,7 @@ async function loadRelease() {
     // A lifetime figure across every release, so it survives each new version rather than
     // resetting to zero. Shown even when there is no downloadable build right now.
     setCount(el("stat-github"), data.githubDownloads);
+    describeSplit(data.downloads);
 
     if (!data.release) {
       showNoRelease("No build published yet");
