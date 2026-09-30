@@ -1,13 +1,15 @@
 import {
   REPO,
-  apkAssets,
   desktopReleasesUrl,
   fetchReleases,
   latestStable,
   loadDesktop,
   newestPlatformAsset,
+  newestWearAsset,
+  phoneApks,
   reconcileGithubTotal,
   totalApkDownloads,
+  totalWearDownloads,
 } from './_lib.js';
 
 /**
@@ -43,7 +45,8 @@ export default async function handler(req, res) {
     } else {
       const android = await reconcileGithubTotal(totalApkDownloads(releases));
       githubDownloads = android + (desktop.downloads ?? 0);
-      downloads = { android, desktop: desktop.downloads };
+      // `android` includes the watch app; `wear` is its share of that, for the hover split.
+      downloads = { android, wear: totalWearDownloads(releases), desktop: desktop.downloads };
     }
     const common = {
       repo: REPO,
@@ -53,6 +56,7 @@ export default async function handler(req, res) {
       // published yet" from "don't know right now".
       ...(desktop.downloads === null ? {} : { desktop: describeDesktop(desktop.releases) }),
       desktopReleasesUrl: desktopReleasesUrl(),
+      wear: describeWear(releases),
     };
     const release = latestStable(releases);
 
@@ -60,7 +64,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ...common, release: null });
     }
 
-    const assets = apkAssets(release);
+    const assets = phoneApks(release);
     return res.status(200).json({
       ...common,
       release: {
@@ -81,6 +85,20 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(502).json({ error: String(err?.message || err) });
   }
+}
+
+/** The newest Wear OS build, or `null` before one is published. */
+function describeWear(releases) {
+  const found = newestWearAsset(releases);
+  if (!found) return null;
+  return {
+    version: found.release.tag_name,
+    publishedAt: found.release.published_at,
+    htmlUrl: found.release.html_url,
+    name: found.asset.name,
+    size: found.asset.size,
+    href: `/api/download?id=${found.asset.id}`,
+  };
 }
 
 /** The newest desktop installer for each platform, or `null` before the first one is published. */

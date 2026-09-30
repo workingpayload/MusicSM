@@ -121,6 +121,35 @@
             <ul class="alt-builds" id="alt-builds"></ul>
 
             <!--
+              The Wear OS app, attached to the same GitHub release as the phone APK. A plain link
+              too: /api/download?wear=1 resolves the newest watch build server-side (or the
+              releases page before there is one). Script only pins it to the build it describes.
+            -->
+            <div class="wear-cta">
+              <div class="cta-row">
+                <a class="btn btn-ghost" id="wear-btn" href="/api/download?wear=1">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="6" />
+                    <path d="M12 9.5V12l1.5 1.5" />
+                    <path d="M9 6.5 9.6 3h4.8l.6 3.5M9 17.5l.6 3.5h4.8l.6-3.5" />
+                  </svg>
+                  <span>Download for Wear OS</span>
+                </a>
+              </div>
+              <p class="cta-meta" id="wear-meta">
+                MusicSM for Wear OS · controls, lyrics and voice search on your watch
+              </p>
+            </div>
+
+            <!--
               MusicSM Desktop, released from its own repo. Plain links as well: /api/download sends
               each to the newest installer for that OS, or to the desktop releases page before the
               first one is out. Script only pins them to the build it describes.
@@ -350,6 +379,14 @@
           <p class="notice">
             <strong>Requires Android 7.0 or newer.</strong> Downloads are served straight from the
             project's GitHub releases, so you can always verify the file at source.
+          </p>
+
+          <p class="notice">
+            <strong>Have a Wear OS watch?</strong> The watch app needs MusicSM on your phone and
+            only talks to the phone build from the same release, so update both together. Watches
+            have no browser to install from: install it from a computer with
+            <code>adb install</code> over Wi‑Fi debugging (Settings → Developer options on the
+            watch), or with an app like Bugjaeger or Wear Installer on your phone.
           </p>
 
           <p class="notice">

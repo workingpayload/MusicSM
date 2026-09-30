@@ -14,7 +14,7 @@ web/
     ├── _lib.js       shared GitHub + Redis helpers (the _ prefix keeps it off the router)
     ├── release.js    latest release + lifetime totals, edge-cached for 5 minutes
     ├── stats.js      the live page-click counter, never cached
-    └── download.js   counts the click, then redirects to the APK (or desktop installer) on GitHub
+    └── download.js   counts the click, then redirects to the APK, Wear OS APK or desktop installer on GitHub
 ```
 
 ## Deploying
@@ -41,8 +41,22 @@ Streaming ~6 MB through a function for every download would be slow and costly w
 already does it well, and proxying would hide the download from GitHub's own counter.
 
 `?id=` is matched against the assets of *every* release, so a link to an older version still
-resolves to that exact build. An unrecognised id falls back to the newest APK rather than
+resolves to that exact build. An unrecognised id falls back to the newest phone APK rather than
 erroring.
+
+### Wear OS app
+
+The watch app is attached to the **same release** as the phone APK. Any `.apk` with `wear` in its
+name (e.g. `MusicSM.Wear.v3.0.0.apk`) is treated as the watch build:
+
+- It never becomes the main **Download for Android** file, whatever order the assets were uploaded
+  in. The app's own updater skips it the same way.
+- **Download for Wear OS** links to `/api/download?wear=1`, which serves the newest stable release
+  that has a watch build (`&id=` isn't needed; the page pins the exact file). Before one exists the
+  button is muted and opens the releases page.
+- `/api/release` describes it under `wear` (`null` before the first one). Its downloads are part of
+  the Android total; `downloads.wear` carries its share for the hover split.
+- Sign it with the **same key** as the phone APK, or the watch and phone can't talk.
 
 ### MusicSM Desktop
 
@@ -105,8 +119,9 @@ All optional.
 
 The page always reads `releases/latest`, so shipping an update is just:
 
-1. Build the release APK.
-2. Create a GitHub release tagged `vX.Y.Z` and attach the `.apk`.
+1. Build the release APK (and the Wear OS APK, signed with the same key).
+2. Create a GitHub release tagged `vX.Y.Z` and attach the `.apk` (plus the watch `.apk`, with
+   `Wear` in its file name).
 
 Version, file size, release date and download count all update on their own within five minutes.
 Attach more than one APK (per-ABI splits, for instance) and the extras appear as secondary chips

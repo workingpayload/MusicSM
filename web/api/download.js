@@ -1,11 +1,14 @@
 import {
   DESKTOP_REPO,
+  REPO,
   apkAssets,
   desktopReleasesUrl,
   fetchReleases,
   isDesktopPlatform,
   latestStable,
   newestPlatformAsset,
+  newestWearAsset,
+  phoneApks,
   platformAssets,
   recordDownload,
 } from './_lib.js';
@@ -32,7 +35,9 @@ const ALLOWED_HOSTS = new Set([
  *
  * `?id=` selects a specific asset and is matched against *every* release, so an old link or a
  * bookmark for a previous version still resolves to the build it asked for. Anything
- * unrecognised falls back to the newest APK rather than erroring.
+ * unrecognised falls back to the newest phone APK rather than erroring.
+ *
+ * `?wear=1` gives the newest Wear OS APK instead (the watch app ships in the same releases).
  *
  * `?desktop=windows|mac` does the same for MusicSM Desktop's installers, from its own repo.
  */
@@ -51,9 +56,14 @@ export default async function handler(req, res) {
 
   const requested = String(req.query?.id ?? '');
   const everyApk = releases.flatMap((release) => apkAssets(release));
-  const newest = apkAssets(latestStable(releases));
+  const pinned = everyApk.find((a) => String(a.id) === requested);
 
-  const asset = everyApk.find((a) => String(a.id) === requested) ?? newest[0];
+  if (!pinned && req.query?.wear) {
+    const wear = newestWearAsset(releases)?.asset;
+    return wear ? countAndRedirect(res, wear) : redirect(res, `https://github.com/${REPO}/releases`);
+  }
+
+  const asset = pinned ?? phoneApks(latestStable(releases))[0];
   if (!asset) {
     return res.status(404).send('No APK has been published yet.');
   }

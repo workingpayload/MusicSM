@@ -451,8 +451,9 @@ h1 .accent {
   border-color: var(--glass-stroke);
 }
 
-/* MusicSM Desktop's buttons: a quieter second row under the Android download. */
-.desktop-cta .cta-row {
+/* MusicSM Desktop's and the Wear OS app's buttons: quieter rows under the Android download. */
+.desktop-cta .cta-row,
+.wear-cta .cta-row {
   margin-top: 24px;
 }
 

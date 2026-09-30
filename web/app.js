@@ -133,7 +133,10 @@ function renderRelease(data) {
 function describeSplit(downloads) {
   const card = el("stat-github")?.parentElement;
   if (!card || !downloads || !Number.isFinite(downloads.android)) return;
-  const parts = [`Android ${numberFormat.format(downloads.android)}`];
+  const android = Number.isFinite(downloads.wear)
+    ? `Android ${numberFormat.format(downloads.android)} (Wear OS ${numberFormat.format(downloads.wear)})`
+    : `Android ${numberFormat.format(downloads.android)}`;
+  const parts = [android];
   if (Number.isFinite(downloads.desktop)) {
     parts.push(`Desktop ${numberFormat.format(downloads.desktop)}`);
   }
@@ -146,6 +149,38 @@ function describeSplit(downloads) {
 }
 
 const DESKTOP_BUTTONS = { windows: "desktop-windows", mac: "desktop-mac" };
+
+/**
+ * The Wear OS button. Before a watch build is published it stays a muted link to the releases
+ * page (which is where /api/download?wear=1 sends people then too), so it's never a dead end.
+ */
+function renderWear(data) {
+  const button = el("wear-btn");
+  if (!button || !("wear" in data)) return;
+  const build = data.wear;
+  button.classList.toggle("is-muted", !build);
+  if (!build) {
+    button.href = RELEASES_URL;
+    button.target = "_blank";
+    button.rel = "noopener noreferrer";
+    button.title = "Not published yet — opens the releases page";
+    el("wear-meta").textContent = "MusicSM for Wear OS is coming soon.";
+    return;
+  }
+  button.href = build.href;
+  const size = formatBytes(build.size);
+  button.title = size ? `${build.name} · ${size}` : build.name;
+  const released = formatDate(build.publishedAt);
+  el("wear-meta").textContent = [
+    `MusicSM for Wear OS ${build.version}`,
+    size,
+    released && `released ${released}`,
+    "Wear OS 3+",
+    "needs the phone app",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 /**
  * The Windows and Mac buttons, for MusicSM Desktop. Before its first release they stay muted links
@@ -207,6 +242,7 @@ async function loadRelease() {
     setCount(el("stat-github"), data.githubDownloads);
     describeSplit(data.downloads);
     renderDesktop(data);
+    renderWear(data);
 
     if (!data.release) {
       showNoRelease("No build published yet");
@@ -253,7 +289,7 @@ function watchDownloads() {
   el("alt-builds").addEventListener("click", (event) => {
     if (event.target.closest("a")) onDownload();
   });
-  for (const id of Object.values(DESKTOP_BUTTONS)) {
+  for (const id of [...Object.values(DESKTOP_BUTTONS), "wear-btn"]) {
     el(id)?.addEventListener("click", (event) => {
       // Muted, it's a link to the releases page rather than a download.
       if (!event.currentTarget.classList.contains("is-muted")) onDownload();

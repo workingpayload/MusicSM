@@ -48,7 +48,8 @@ class AppUpdater @Inject constructor(
                 val assets = json.optJSONArray("assets") ?: return@use null
                 val apkUrl = (0 until assets.length())
                     .map { assets.getJSONObject(it) }
-                    .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+                    // The Wear OS app ships in the same release; a phone must never install it.
+                    .firstOrNull { isPhoneApk(it.optString("name")) }
                     ?.optString("browser_download_url")
                     ?.takeIf { it.isNotBlank() }
                     ?: return@use null
@@ -141,3 +142,7 @@ class AppUpdater @Inject constructor(
         const val APK_MIME = "application/vnd.android.package-archive"
     }
 }
+
+/** A release asset that installs on a phone: an APK that isn't the Wear OS build. */
+internal fun isPhoneApk(assetName: String): Boolean =
+    assetName.endsWith(".apk", ignoreCase = true) && !assetName.contains("wear", ignoreCase = true)

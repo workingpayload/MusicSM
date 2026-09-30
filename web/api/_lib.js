@@ -175,10 +175,42 @@ export function latestStable(releases) {
 }
 
 const APK = /\.apk$/i;
+const WEAR = /wear/i;
 
 /** Just the installable builds — release notes, mapping files and checksums are not downloads. */
 export function apkAssets(release) {
   return (release?.assets ?? []).filter((a) => APK.test(a.name));
+}
+
+/**
+ * The phone builds. The Wear OS app ships in the same release (its file name says "Wear"), and
+ * must never be what the main Android button — or the app's own updater — hands out.
+ */
+export function phoneApks(release) {
+  return apkAssets(release).filter((a) => !WEAR.test(a.name));
+}
+
+/** The Wear OS builds in a release. */
+export function wearApks(release) {
+  return apkAssets(release).filter((a) => WEAR.test(a.name));
+}
+
+/**
+ * The watch app to offer: from the newest stable release that has one, so a phone-only release
+ * doesn't leave the Wear OS button with nothing to download.
+ */
+export function newestWearAsset(releases) {
+  for (const release of releases) {
+    if (release.draft || release.prerelease) continue;
+    const asset = wearApks(release)[0];
+    if (asset) return { release, asset };
+  }
+  return null;
+}
+
+/** Lifetime Wear OS APK downloads (already part of [totalApkDownloads]; shown as a split). */
+export function totalWearDownloads(releases) {
+  return sumDownloads(releases, wearApks);
 }
 
 /**
