@@ -10,6 +10,7 @@ web/
 ├── app.js            fills the page in from the API; pure progressive enhancement
 ├── icon.png          the launcher icon, used for the favicon and nav
 ├── icon-large.jpg    the hero artwork, cropped from the 1024px source icon
+├── install.sh        one-command Mac install of MusicSM Desktop (curl … | bash)
 └── api/
     ├── _lib.js       shared GitHub + Redis helpers (the _ prefix keeps it off the router)
     ├── release.js    latest release + lifetime totals, edge-cached for 5 minutes
@@ -80,6 +81,17 @@ hover the card. Desktop clicks count towards "Downloads from this page" too.
 - The desktop count has its own reset protection keys (below), so the Android history is untouched.
 - `DOWNLOADS_OVERRIDE` still sets the exact number shown, desktop included.
 - `DESKTOP_GITHUB_REPO=none` hides the desktop buttons and leaves desktop out of the total.
+
+**One-command Mac install.** The Mac app isn't signed by Apple yet, so a DMG downloaded in a browser
+gets macOS's "can't be opened" prompt. Under the buttons, the page offers
+`curl -fsSL https://music-sm.vercel.app/install.sh | bash` instead: `install.sh` fetches the newest
+DMG through `/api/download?desktop=mac` (so it's counted like a click), copies the app into
+Applications (or `~/Applications` for a standard account), and opens it. Files fetched with curl
+aren't marked as downloaded from the internet, so macOS opens the app without the prompt. It checks
+for Apple silicon first, closes a running copy before replacing it, and puts nothing in place until
+the copy has finished. It's served as `text/plain` (see `vercel.json`) so "See what it does" shows
+it in the browser, and `.gitattributes` keeps it LF, since a CRLF script breaks in bash. The command
+stays hidden until there is a Mac build.
 
 ### Turning on the page counter
 

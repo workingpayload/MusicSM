@@ -215,6 +215,9 @@ function renderDesktop(data) {
   const newest = [data.desktop?.windows, data.desktop?.mac]
     .filter(Boolean)
     .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))[0];
+  // The Mac command installs the newest Mac build, so it waits until there is one.
+  const macInstall = el("mac-install");
+  if (macInstall) macInstall.hidden = !data.desktop?.mac;
   if (!newest) {
     el("desktop-meta").textContent = "MusicSM Desktop for Windows and Mac is coming soon.";
     return;
@@ -380,7 +383,35 @@ function setupSupport() {
   }
 }
 
+/** Copies the Mac install command, falling back to selecting it where the clipboard is blocked. */
+function setupMacInstall() {
+  const button = el("copy-mac-install");
+  const command = el("mac-install-cmd");
+  if (!button || !command) return;
+
+  button.addEventListener("click", async () => {
+    let ok = true;
+    try {
+      await navigator.clipboard.writeText(command.textContent.trim());
+    } catch {
+      ok = false;
+      const range = document.createRange();
+      range.selectNodeContents(command);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    button.textContent = ok ? "Copied" : "Select it";
+    button.classList.add("is-done");
+    setTimeout(() => {
+      button.textContent = "Copy";
+      button.classList.remove("is-done");
+    }, 1800);
+  });
+}
+
 loadRelease();
 loadStats();
 watchDownloads();
 setupSupport();
+setupMacInstall();

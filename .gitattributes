@@ -1,0 +1,2 @@
+# Shell scripts run on macOS/Linux, where a CRLF line ending breaks them (web/install.sh).
+*.sh text eol=lf
