@@ -186,10 +186,44 @@
                   </svg>
                   <span>Download for Mac</span>
                 </a>
+                <a
+                  class="btn btn-ghost"
+                  id="desktop-store"
+                  href="https://apps.microsoft.com/detail/xpffd9p6njshh5"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M3 3h8.5v8.5H3zM12.5 3H21v8.5h-8.5zM3 12.5h8.5V21H3zM12.5 12.5H21V21h-8.5z" />
+                  </svg>
+                  <span>Get it from Microsoft Store</span>
+                </a>
               </div>
               <p class="cta-meta" id="desktop-meta">
                 MusicSM Desktop · Windows 10/11 (64-bit) · Macs with Apple silicon
               </p>
+
+              <!--
+                Windows: the Microsoft Store build, installed with winget from the msstore source.
+                Store builds are signed by Microsoft, so there's no SmartScreen prompt.
+              -->
+              <div class="install-cmd" id="windows-install">
+                <p class="install-cmd-label">On Windows? Install from the Microsoft Store with one command</p>
+                <div class="install-cmd-row">
+                  <code id="windows-install-cmd">winget install --id XPFFD9P6NJSHH5 --source msstore</code>
+                  <button class="copy-btn" data-copy="windows-install-cmd" type="button">Copy</button>
+                </div>
+                <p class="install-cmd-hint">
+                  Paste it into PowerShell or Terminal and accept the Store terms when asked. Updates
+                  come through the Store.
+                  <a
+                    href="https://apps.microsoft.com/detail/xpffd9p6njshh5"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >View in the Store</a
+                  >
+                </p>
+              </div>
 
               <!--
                 The Mac app isn't signed by Apple yet, so a DMG from the browser gets macOS's "can't
@@ -200,7 +234,7 @@
                 <p class="install-cmd-label">On a Mac? Install with one command, no security prompt</p>
                 <div class="install-cmd-row">
                   <code id="mac-install-cmd">curl -fsSL https://music-sm.vercel.app/install.sh | bash</code>
-                  <button class="copy-btn" id="copy-mac-install" type="button">Copy</button>
+                  <button class="copy-btn" data-copy="mac-install-cmd" type="button">Copy</button>
                 </div>
                 <p class="install-cmd-hint">
                   Paste it into Terminal. It puts MusicSM Desktop in Applications and opens it.
@@ -407,7 +441,10 @@
           </p>
 
           <p class="notice">
-            <strong>On a computer?</strong> The Windows and Mac installers aren't code-signed yet.
+            <strong>On a computer?</strong> On Windows, the easiest way is the
+            <a href="https://apps.microsoft.com/detail/xpffd9p6njshh5" target="_blank" rel="noopener noreferrer">Microsoft Store</a>
+            (or the <code>winget</code> command above): it's signed and updates itself. The direct
+            Windows and Mac installers aren't code-signed yet.
             On Windows, if SmartScreen steps in, choose <em>More info → Run anyway</em>. On a Mac,
             the one-line Terminal command above installs it with no prompt; if you downloaded the
             DMG instead, open the app once, then allow it under

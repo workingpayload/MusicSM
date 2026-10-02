@@ -16,7 +16,7 @@ main() {
   local site="https://music-sm.vercel.app"
 
   if [ "$(uname -s)" != "Darwin" ]; then
-    fail "This installer is for macOS. For Windows, download the installer from $site."
+    fail "This installer is for macOS. On Windows, get MusicSM from the Microsoft Store: winget install --id XPFFD9P6NJSHH5 --source msstore"
   fi
   # hw.optional.arm64 is 1 on Apple silicon, even when this shell runs under Rosetta.
   if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" != "1" ]; then

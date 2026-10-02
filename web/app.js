@@ -383,30 +383,31 @@ function setupSupport() {
   }
 }
 
-/** Copies the Mac install command, falling back to selecting it where the clipboard is blocked. */
-function setupMacInstall() {
-  const button = el("copy-mac-install");
-  const command = el("mac-install-cmd");
-  if (!button || !command) return;
+/** Copies an install command, falling back to selecting it where the clipboard is blocked. */
+function setupInstallCommands() {
+  document.querySelectorAll(".copy-btn[data-copy]").forEach((button) => {
+    const command = el(button.dataset.copy);
+    if (!command) return;
 
-  button.addEventListener("click", async () => {
-    let ok = true;
-    try {
-      await navigator.clipboard.writeText(command.textContent.trim());
-    } catch {
-      ok = false;
-      const range = document.createRange();
-      range.selectNodeContents(command);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-    button.textContent = ok ? "Copied" : "Select it";
-    button.classList.add("is-done");
-    setTimeout(() => {
-      button.textContent = "Copy";
-      button.classList.remove("is-done");
-    }, 1800);
+    button.addEventListener("click", async () => {
+      let ok = true;
+      try {
+        await navigator.clipboard.writeText(command.textContent.trim());
+      } catch {
+        ok = false;
+        const range = document.createRange();
+        range.selectNodeContents(command);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      button.textContent = ok ? "Copied" : "Select it";
+      button.classList.add("is-done");
+      setTimeout(() => {
+        button.textContent = "Copy";
+        button.classList.remove("is-done");
+      }, 1800);
+    });
   });
 }
 
@@ -414,4 +415,4 @@ loadRelease();
 loadStats();
 watchDownloads();
 setupSupport();
-setupMacInstall();
+setupInstallCommands();

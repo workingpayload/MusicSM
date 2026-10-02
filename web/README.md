@@ -93,6 +93,14 @@ the copy has finished. It's served as `text/plain` (see `vercel.json`) so "See w
 it in the browser, and `.gitattributes` keeps it LF, since a CRLF script breaks in bash. The command
 stays hidden until there is a Mac build.
 
+**Microsoft Store (Windows).** MusicSM Desktop is also on the
+[Microsoft Store](https://apps.microsoft.com/detail/xpffd9p6njshh5) (product id `XPFFD9P6NJSHH5`).
+The desktop row has a **Get it from Microsoft Store** button, and the page offers
+`winget install --id XPFFD9P6NJSHH5 --source msstore` with a Copy button. Store builds are signed
+and update themselves, so there's no SmartScreen prompt. Store installs go through Microsoft, not
+`/api/download`, so they aren't in the GitHub or page counts. Both stay visible even before there is
+a GitHub desktop build.
+
 ### Turning on the page counter
 
 It needs any Redis with an Upstash-compatible REST API:
