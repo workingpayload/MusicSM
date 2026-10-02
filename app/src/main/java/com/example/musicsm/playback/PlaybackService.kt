@@ -222,6 +222,12 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
+        // A track can be a muxed video file when YouTube offers no audio-only stream (see
+        // pickMuxedStream); only its audio is wanted, so video is never decoded.
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+            .build()
+
         // The audio session is deliberately NOT pinned here. Forcing a pre-generated id keeps one
         // session - and the effect chain hanging off it - alive across output changes, and a chain
         // built for the phone speaker does not survive the move to Bluetooth A2DP on many devices:

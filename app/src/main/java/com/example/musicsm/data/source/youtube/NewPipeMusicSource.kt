@@ -25,6 +25,8 @@ import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
+import org.schabi.newpipe.extractor.stream.VideoStream
+import android.util.Log
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import javax.inject.Inject
@@ -218,11 +220,27 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
             isAac = { it.format == MediaFormat.M4A },
             isProgressive = { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP },
             bitrate = AudioStream::getAverageBitrate,
-        ) ?: error("No audio stream for $songId")
+        )
+        if (audio != null) {
+            return PlayableStream(
+                url = audio.content,
+                mimeType = audio.format?.mimeType,
+                bitrate = audio.averageBitrate,
+                expiresAtMs = System.currentTimeMillis() + STREAM_TTL_MS,
+            )
+        }
+        val muxed = pickMuxedStream(
+            streams = info.videoStreams.filter { !it.isVideoOnly && !it.content.isNullOrEmpty() },
+            isAac = { it.format == MediaFormat.MPEG_4 },
+            isProgressive = { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP },
+            height = VideoStream::getHeight,
+        ) ?: error("No playable audio stream for $songId")
+        Log.i(TAG, "$songId has no audio-only stream; playing the audio of muxed itag ${muxed.itag}")
         return PlayableStream(
-            url = audio.content,
-            mimeType = audio.format?.mimeType,
-            bitrate = audio.averageBitrate,
+            url = muxed.content,
+            mimeType = muxed.format?.mimeType,
+            // Whole-file bits per second; audio streams report kbps.
+            bitrate = muxed.bitrate / 1000,
             expiresAtMs = System.currentTimeMillis() + STREAM_TTL_MS,
         )
     }
@@ -334,6 +352,7 @@ class NewPipeMusicSource @Inject constructor() : MusicSource {
     }
 
     companion object {
+        private const val TAG = "NewPipeMusicSource"
         private const val STREAM_TTL_MS = 5 * 60 * 60 * 1000L // ~5h; googlevideo URLs expire ~6h
         private const val PLAYLIST_URL = "https://www.youtube.com/playlist?list="
         private const val MAX_INFINITE_PLAYLIST_TRACKS = 50

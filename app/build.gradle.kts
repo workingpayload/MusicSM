@@ -17,8 +17,8 @@ android {
         applicationId = "com.example.musicsm"
         minSdk = 24
         targetSdk = 37
-        versionCode = 7
-        versionName = "3.0.0"
+        versionCode = 8
+        versionName = "3.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

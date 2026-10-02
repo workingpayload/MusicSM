@@ -42,9 +42,15 @@ class AudioStreamSelectionTest {
     }
 
     @Test
-    fun `manifest-only AAC still beats progressive Opus`() {
+    fun `manifest-only AAC is skipped for progressive Opus`() {
         val hlsAac = Candidate("aac-hls", aac = true, progressive = false, kbps = 128)
-        assertEquals(hlsAac, pick(opus160, hlsAac))
+        assertEquals(opus160, pick(opus160, hlsAac))
+    }
+
+    @Test
+    fun `returns null when only manifest streams are offered`() {
+        val hlsAac = Candidate("aac-hls", aac = true, progressive = false, kbps = 128)
+        assertNull(pick(hlsAac))
     }
 
     @Test
@@ -55,5 +61,35 @@ class AudioStreamSelectionTest {
     @Test
     fun `returns null when nothing is offered`() {
         assertNull(pick())
+    }
+
+    private data class Muxed(
+        val name: String,
+        val aac: Boolean,
+        val progressive: Boolean,
+        val height: Int,
+    )
+
+    private fun pickMuxed(vararg streams: Muxed): Muxed? = pickMuxedStream(
+        streams = streams.toList(),
+        isAac = Muxed::aac,
+        isProgressive = Muxed::progressive,
+        height = Muxed::height,
+    )
+
+    @Test
+    fun `smallest progressive MP4 is chosen as the muxed fallback`() {
+        val mp4At360 = Muxed("itag-18", aac = true, progressive = true, height = 360)
+        val mp4At720 = Muxed("itag-22", aac = true, progressive = true, height = 720)
+        val webmAt144 = Muxed("webm", aac = false, progressive = true, height = 144)
+        assertEquals(mp4At360, pickMuxed(mp4At720, webmAt144, mp4At360))
+    }
+
+    @Test
+    fun `muxed fallback ignores manifest streams`() {
+        val hls = Muxed("hls", aac = true, progressive = false, height = 144)
+        val webm = Muxed("webm", aac = false, progressive = true, height = 360)
+        assertEquals(webm, pickMuxed(hls, webm))
+        assertNull(pickMuxed(hls))
     }
 }

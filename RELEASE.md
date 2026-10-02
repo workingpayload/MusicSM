@@ -1,5 +1,18 @@
 # Release notes
 
+## v3.0.1 — 2026-10-02
+
+A playback fix for songs that loaded for a moment and then skipped to the next one.
+
+### Fixes
+- **Kids' songs and nursery rhymes play again.** YouTube offers made-for-kids videos (Pinkfong, CoComelon and the like) only as a combined video file, with no audio-only version. MusicSM couldn't find audio, so each of these songs loaded, failed and skipped. MusicSM now plays the sound from that video file (the picture is never downloaded as video or shown).
+- **Songs skipping for some listeners after updating to v3.0.0.** When YouTube sends only a combined video file or a streaming playlist instead of a plain audio file, the song no longer fails. MusicSM picks a format the player can always open, so these songs play instead of loading and skipping.
+
+### Notes
+- The watch app is unchanged; v3.0.0 on the watch works with v3.0.1 on the phone.
+- No database change (still schema v6), so your library carries over untouched.
+- Still not Play-shippable (GPLv3 NewPipeExtractor + YouTube ToS); for personal / educational use.
+
 ## v3.0.0 — 2026-09-30
 
 A big playback and reach release: DJ-style **Mix** transitions, a controllable song cache with an offline backup page, word-by-word lyrics far more often, playlist import from Apple Music and YouTube, a much richer Wear OS app, and a landscape layout.
