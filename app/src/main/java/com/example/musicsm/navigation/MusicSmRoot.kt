@@ -85,6 +85,9 @@ import com.example.musicsm.ui.player.PlayerViewModel
 import com.example.musicsm.ui.update.UpdateDialog
 import com.example.musicsm.ui.update.UpdateState
 import com.example.musicsm.ui.update.UpdateViewModel
+import com.example.musicsm.ui.account.GoogleSignInDialog
+import com.example.musicsm.ui.account.YouTubeAccountViewModel
+import com.example.musicsm.ui.account.YouTubeSignInPromptDialog
 import com.example.musicsm.ui.share.rememberQrScanner
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.GlassFillStrong
@@ -107,8 +110,11 @@ fun MusicSmRoot(
     val playerViewModel: PlayerViewModel = hiltViewModel()
     val intentViewModel: AppIntentViewModel = hiltViewModel()
     val updateViewModel: UpdateViewModel = hiltViewModel()
+    val accountViewModel: YouTubeAccountViewModel = hiltViewModel()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val updateState by updateViewModel.state.collectAsStateWithLifecycle()
+    val signInPrompt by accountViewModel.prompt.collectAsStateWithLifecycle()
+    val showSignIn by accountViewModel.showSignIn.collectAsStateWithLifecycle()
 
     // Quietly look for a newer GitHub release once per launch; the popup only shows a version the
     // user hasn't already tapped "Later" on.
@@ -130,6 +136,7 @@ fun MusicSmRoot(
     val badLinkMessage = stringResource(R.string.shared_playlist_bad_link)
     val unknownCodeMessage = stringResource(R.string.scan_unknown_code)
     val scannerUnavailableMessage = stringResource(R.string.scan_unavailable)
+    val signedInMessage = stringResource(R.string.youtube_signed_in)
 
     // Nothing to screensaver once playback is gone.
     LaunchedEffect(playerState.currentSong == null) {
@@ -538,6 +545,27 @@ fun MusicSmRoot(
                         onLater = { updateViewModel.dismissVersion(available.info) },
                         onDismiss = { updateViewModel.dismissVersion(available.info) },
                     )
+                }
+
+                // "YouTube wants you to sign in", raised by the player when anonymous playback is
+                // blocked, and the Google sign-in page it opens.
+                if (showSignIn) {
+                    GoogleSignInDialog(
+                        onSignedIn = { cookie ->
+                            accountViewModel.completeSignIn(cookie).also { ok ->
+                                if (ok) toast(context, signedInMessage)
+                            }
+                        },
+                        onClose = accountViewModel::cancelSignIn,
+                    )
+                } else {
+                    signInPrompt?.let { reason ->
+                        YouTubeSignInPromptDialog(
+                            reason = reason,
+                            onSignIn = accountViewModel::openSignIn,
+                            onDismiss = accountViewModel::dismissPrompt,
+                        )
+                    }
                 }
             }
         }

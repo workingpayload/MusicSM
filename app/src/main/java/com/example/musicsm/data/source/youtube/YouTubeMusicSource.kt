@@ -9,6 +9,8 @@ import com.example.innertube.model.YtPlaylist
 import com.example.innertube.model.YtSearchFilter
 import com.example.innertube.model.YtShelf
 import com.example.innertube.model.YtSong
+import com.example.musicsm.data.auth.SignInPrompt
+import com.example.musicsm.data.auth.YouTubeAccount
 import com.example.musicsm.domain.model.Album
 import com.example.musicsm.domain.model.AlbumAudio
 import com.example.musicsm.domain.model.Artist
@@ -18,6 +20,7 @@ import com.example.musicsm.domain.model.HomeSection
 import com.example.musicsm.domain.model.PlayableStream
 import com.example.musicsm.domain.model.Playlist
 import com.example.musicsm.domain.model.SearchResults
+import com.example.musicsm.domain.model.SignInRequiredException
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.domain.match.ArtistMatching
 import com.example.musicsm.domain.source.MusicSource
@@ -25,6 +28,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.schabi.newpipe.extractor.exceptions.AgeRestrictedContentException
+import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
+import org.schabi.newpipe.extractor.exceptions.SignInConfirmNotBotException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,8 +44,8 @@ import javax.inject.Singleton
  * has a genuinely music-specific trending chart. So each is asked only for what it is good at.
  *
  * Every metadata call falls back to NewPipe when YouTube Music fails, because a degraded screen is
- * worth more than an error one; the fallback is silent by design. Stream resolution has no
- * fallback because it has no alternative.
+ * worth more than an error one; the fallback is silent by design. Stream resolution falls back
+ * only to a signed-in session, when YouTube blocks anonymous playback (see [resolveStream]).
  *
  * Ids are passed through the app unchanged, so this class dispatches on their *shape* — a
  * `MPREb_…` album or a `UC…` channel came from YouTube Music, whereas a URL or a bare artist name
@@ -50,10 +55,16 @@ import javax.inject.Singleton
 class YouTubeMusicSource @Inject constructor(
     private val innerTube: InnerTube,
     private val newPipe: NewPipeMusicSource,
+    private val signedIn: SignedInStreamResolver,
+    private val account: YouTubeAccount,
 ) : MusicSource {
 
     /** Age-restricted videos, and the audio-only version of the same song that plays instead. */
     private val audioVersions = ConcurrentHashMap<String, String>()
+
+    /** Until when YouTube is assumed to still block anonymous playback (see [resolveStream]). */
+    @Volatile
+    private var botBlockedUntilMs = 0L
 
     /**
      * YouTube Music's own home feed, which is editorial rather than personalised while signed out.
@@ -186,20 +197,60 @@ class YouTubeMusicSource @Inject constructor(
     }
 
     /**
-     * A stream for [songId]. YouTube won't play an age-restricted video without signing in (no
-     * client gets around that any more), but the same song's audio-only version on YouTube Music
-     * normally isn't restricted, so that one plays in its place.
+     * A stream for [songId].
+     *
+     * NewPipe resolves it anonymously first. Two refusals have a way around them:
+     * - Age-restricted: no anonymous client plays these any more, but the same song's audio-only
+     *   version on YouTube Music normally isn't restricted, so that one plays in its place (or the
+     *   video itself, with a signed-in account).
+     * - "Sign in to confirm you're not a bot": YouTube has blocked anonymous playback for this
+     *   network. With a signed-in account [signedIn] plays it; without one the listener is asked
+     *   to sign in and [SignInRequiredException] stops the player from skipping through a queue
+     *   in which every track would fail the same way.
+     *
+     * Once a block is seen, signed-in playback is tried first for a while, which saves a doomed
+     * anonymous round trip per track.
      */
     override suspend fun resolveStream(songId: String): PlayableStream {
-        audioVersions[songId]?.let { return newPipe.resolveStream(it) }
+        val id = audioVersions[songId] ?: songId
+        if (account.isSignedIn && System.currentTimeMillis() < botBlockedUntilMs) {
+            try {
+                return signedIn.resolve(id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (expired: SignInRequiredException) {
+                throw expired
+            } catch (failure: Exception) {
+                Log.w(TAG, "Signed-in stream failed for $id; trying anonymously", failure)
+            }
+        }
         return try {
-            newPipe.resolveStream(songId)
+            newPipe.resolveStream(id)
+        } catch (blocked: SignInConfirmNotBotException) {
+            resolveAfterBotCheck(id, blocked)
+        } catch (blocked: ReCaptchaException) {
+            resolveAfterBotCheck(id, blocked)
         } catch (restricted: AgeRestrictedContentException) {
-            val audio = audioVersionOf(songId) ?: throw restricted
+            if (id != songId) throw restricted
+            val audio = audioVersionOf(songId)
+            if (audio == null) {
+                if (account.isSignedIn) return signedIn.resolve(songId)
+                throw restricted
+            }
             Log.i(TAG, "$songId is age-restricted; playing its audio version $audio")
             audioVersions[songId] = audio
-            newPipe.resolveStream(audio)
+            resolveStream(songId)
         }
+    }
+
+    private suspend fun resolveAfterBotCheck(id: String, cause: Exception): PlayableStream {
+        botBlockedUntilMs = System.currentTimeMillis() + BOT_BLOCK_MEMORY_MS
+        if (!account.isSignedIn) {
+            account.requestSignIn(SignInPrompt.BLOCKED)
+            throw SignInRequiredException("YouTube wants a signed-in account to play $id", cause)
+        }
+        Log.i(TAG, "Anonymous playback blocked for $id; using the signed-in session")
+        return signedIn.resolve(id)
     }
 
     private suspend fun audioVersionOf(videoId: String): String? {
@@ -351,6 +402,9 @@ class YouTubeMusicSource @Inject constructor(
 
     private companion object {
         const val TAG = "YouTubeMusicSource"
+
+        /** How long a "not a bot" block is assumed to last before anonymous playback is retried first. */
+        const val BOT_BLOCK_MEMORY_MS = 30 * 60 * 1000L
 
         /** How YouTube prefixes playlist ids: user, radio/mix, auto-generated, and uploads. */
         val PLAYLIST_ID_PREFIXES = listOf("PL", "RD", "OLAK5", "LM", "UU")

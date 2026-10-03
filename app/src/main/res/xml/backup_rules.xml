@@ -6,6 +6,10 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
+    <!-- The YouTube sign-in session is a credential; it never leaves the device. -->
+    <exclude domain="sharedpref" path="youtube_account.xml"/>
+    <!-- The sign-in page's own cookies (WebView). -->
+    <exclude domain="root" path="app_webview/"/>
     <!--
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>

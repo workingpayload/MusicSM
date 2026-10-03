@@ -1,5 +1,24 @@
 # Release notes
 
+## v3.0.2 — 2026-10-04
+
+Keeps music playing when YouTube asks to "confirm you're not a bot".
+
+### New
+- **Optional Google sign-in.** YouTube sometimes stops anonymous playback for a whole network ("Sign in to confirm you're not a bot"). MusicSM now notices this and asks you to sign in. You sign in on Google's own page inside the app. MusicSM keeps only YouTube's session cookies, on this device, and never sees your password. Once you're signed in, the blocked song plays again and later songs play through your account until the block lifts. Sign in or out anytime in **Settings → YouTube account**. If YouTube stops accepting a saved sign-in, MusicSM asks you to sign in again.
+- **Age-restricted videos** now play the video itself when you're signed in and no audio-only version of the song can be found.
+
+### Fixes
+- **No more skipping through the whole queue when YouTube blocks playback.** Every song would fail the same way, so the player now stops on the current song and asks you to sign in instead of skipping track after track. Downloaded and cached songs still play.
+
+### Notes
+- Signing in is optional, and only used while YouTube blocks anonymous playback. Using an unofficial app with your account goes against YouTube's terms and could get the account restricted, so consider a secondary account.
+- The saved sign-in is never included in Android backups or device transfers.
+- NewPipeExtractor stays on v0.26.5, its newest release.
+- The watch app is unchanged; v3.0.0 on the watch works with v3.0.2 on the phone.
+- No database change (still schema v6), so your library carries over untouched.
+- Still not Play-shippable (GPLv3 NewPipeExtractor + YouTube ToS); for personal / educational use.
+
 ## v3.0.1 — 2026-10-02
 
 A playback fix for songs that loaded for a moment and then skipped to the next one.

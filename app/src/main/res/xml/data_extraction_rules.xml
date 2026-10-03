@@ -4,16 +4,13 @@
    for details.
 -->
 <data-extraction-rules>
+    <!-- The YouTube sign-in session is a credential; it never leaves the device. -->
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="youtube_account.xml"/>
+        <exclude domain="root" path="app_webview/"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="youtube_account.xml"/>
+        <exclude domain="root" path="app_webview/"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

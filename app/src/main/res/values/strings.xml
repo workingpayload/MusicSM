@@ -533,4 +533,21 @@
     <string name="track_details_source_downloaded">Downloaded file</string>
     <string name="track_details_source_streamed">Streamed from YouTube</string>
 
+    <!-- YouTube sign-in (only used when YouTube blocks anonymous playback) -->
+    <string name="youtube_signin_blocked_title">YouTube wants you to sign in</string>
+    <string name="youtube_signin_blocked_body">YouTube has paused anonymous playback on this network (“Sign in to confirm you’re not a bot”). Sign in with your Google account to keep listening. Downloaded and cached songs still play.</string>
+    <string name="youtube_signin_expired_title">Sign in to YouTube again</string>
+    <string name="youtube_signin_expired_body">YouTube no longer accepts your saved sign-in. Sign in again to keep listening.</string>
+    <string name="youtube_signin_warning">You sign in on Google’s own page, and only YouTube’s session cookies are kept, on this device. Using an unofficial app goes against YouTube’s terms and could get an account restricted, so consider a secondary account.</string>
+    <string name="youtube_signin_action">Sign in with Google</string>
+    <string name="youtube_signin_not_now">Not now</string>
+    <string name="youtube_login_title">Sign in to YouTube</string>
+    <string name="youtube_login_subtitle">Google sign-in page</string>
+    <string name="youtube_signed_in">Signed in to YouTube</string>
+    <string name="youtube_signed_out">Signed out of YouTube</string>
+    <string name="settings_section_youtube_account">YouTube account</string>
+    <string name="settings_youtube_signed_in_title">Signed in · Sign out</string>
+    <string name="settings_youtube_signed_in_subtitle">Used only when YouTube blocks anonymous playback. Tap to sign out and forget the session.</string>
+    <string name="settings_youtube_signed_out_subtitle">Optional. Keeps music playing when YouTube asks to confirm you’re not a bot.</string>
+
 </resources>

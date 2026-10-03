@@ -24,6 +24,7 @@ import androidx.media3.session.MediaSession
 import com.example.musicsm.MainActivity
 import com.example.musicsm.data.prefs.AppPreferences
 import com.example.musicsm.data.source.youtube.NewPipeDownloaderImpl
+import com.example.musicsm.domain.model.isSignInRequired
 import com.example.musicsm.domain.repository.DownloadRepository
 import com.example.musicsm.domain.repository.LibraryRepository
 import com.example.musicsm.domain.repository.MusicRepository
@@ -121,6 +122,13 @@ class PlaybackService : MediaLibraryService() {
     private val errorListener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             val player = mediaSession?.player ?: return
+            // YouTube blocked anonymous playback: every track would fail alike, so don't burn
+            // through the queue. The UI asks the listener to sign in, then prepares again.
+            if (error.isSignInRequired()) {
+                errorItemId = null
+                errorRetries = 0
+                return
+            }
             val currentId = player.currentMediaItem?.mediaId
             if (currentId != errorItemId) {
                 errorItemId = currentId

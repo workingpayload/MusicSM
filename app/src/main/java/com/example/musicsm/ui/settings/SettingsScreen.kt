@@ -86,6 +86,8 @@ import com.example.musicsm.ui.components.currentLocale
 import com.example.musicsm.ui.update.UpdateDialog
 import com.example.musicsm.ui.update.UpdateState
 import com.example.musicsm.ui.update.UpdateViewModel
+import com.example.musicsm.ui.account.GoogleSignInDialog
+import com.example.musicsm.ui.account.YouTubeAccountViewModel
 import com.example.musicsm.ui.theme.AccentPresets
 import com.example.musicsm.ui.theme.AppBackground
 import com.example.musicsm.ui.theme.Coral
@@ -109,10 +111,15 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
     updateViewModel: UpdateViewModel = hiltViewModel(),
+    accountViewModel: YouTubeAccountViewModel = hiltViewModel(),
 ) {
     ScreenBackHandler { onBack() }
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val updateState by updateViewModel.state.collectAsStateWithLifecycle()
+    val youTubeSignedIn by accountViewModel.signedIn.collectAsStateWithLifecycle()
+    val showYouTubeSignIn by accountViewModel.showSignIn.collectAsStateWithLifecycle()
+    val signedInMessage = stringResource(R.string.youtube_signed_in)
+    val signedOutMessage = stringResource(R.string.youtube_signed_out)
     val downloadCount by viewModel.downloadCount.collectAsStateWithLifecycle()
     val storageBytes by viewModel.storageBytes.collectAsStateWithLifecycle()
     val recentSearchCount by viewModel.recentSearchCount.collectAsStateWithLifecycle()
@@ -452,6 +459,27 @@ fun SettingsScreen(
                 )
             }
 
+            item { SettingsSection(stringResource(R.string.settings_section_youtube_account)) }
+            item {
+                if (youTubeSignedIn) {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_youtube_signed_in_title),
+                        subtitle = stringResource(R.string.settings_youtube_signed_in_subtitle),
+                        destructive = true,
+                        onClick = {
+                            accountViewModel.signOut()
+                            Toast.makeText(context, signedOutMessage, Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                } else {
+                    SettingsRow(
+                        title = stringResource(R.string.youtube_signin_action),
+                        subtitle = stringResource(R.string.settings_youtube_signed_out_subtitle),
+                        onClick = accountViewModel::openSignIn,
+                    )
+                }
+            }
+
             item { SettingsSection(stringResource(R.string.settings_section_privacy)) }
             item {
                 SettingsRow(
@@ -567,6 +595,17 @@ fun SettingsScreen(
 
     if (showSupport) {
         SupportDialog(onDismiss = { showSupport = false })
+    }
+
+    if (showYouTubeSignIn) {
+        GoogleSignInDialog(
+            onSignedIn = { cookie ->
+                accountViewModel.completeSignIn(cookie).also { ok ->
+                    if (ok) Toast.makeText(context, signedInMessage, Toast.LENGTH_SHORT).show()
+                }
+            },
+            onClose = accountViewModel::cancelSignIn,
+        )
     }
 
     (updateState as? UpdateState.Available)?.let { available ->

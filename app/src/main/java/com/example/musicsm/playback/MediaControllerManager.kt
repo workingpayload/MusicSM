@@ -133,6 +133,15 @@ class MediaControllerManager @Inject constructor(
         controller?.pause()
     }
 
+    /** Loads the current track again after a failure (e.g. once the listener has signed in). */
+    fun retryAfterError() {
+        val c = controller ?: return
+        if (c.playerError == null && c.playbackState != Player.STATE_IDLE) return
+        if (c.currentMediaItem == null) return
+        c.prepare()
+        c.play()
+    }
+
     fun next() = controller?.seekToNext().let {}
 
     fun previous() = controller?.seekToPrevious().let {}
