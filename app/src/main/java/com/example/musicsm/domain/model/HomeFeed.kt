@@ -9,6 +9,8 @@ package com.example.musicsm.domain.model
 data class HomeFeed(
     val sections: List<HomeSection> = emptyList(),
     val continuation: String? = null,
+    /** Built for the signed-in listener (their YouTube Music home), not the same-for-everyone feed. */
+    val personalized: Boolean = false,
 )
 
 data class HomeSection(

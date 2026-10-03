@@ -1,5 +1,6 @@
 package com.example.musicsm.domain.source
 
+import com.example.musicsm.domain.model.AccountLibrary
 import com.example.musicsm.domain.model.Album
 import com.example.musicsm.domain.model.AlbumAudio
 import com.example.musicsm.domain.model.Artist
@@ -58,4 +59,16 @@ interface MusicSource {
 
     /** Whether [songId] is its release's own audio, another cut of it, or unknown. */
     suspend fun albumAudio(songId: String): AlbumAudio = AlbumAudio.Unknown
+
+    /**
+     * The provider's own radio queue for [songId], tuned to the signed-in listener; empty when the
+     * provider has none or personalisation is off (callers then build radio from [relatedTo]).
+     */
+    suspend fun personalRadio(songId: String): List<Song> = emptyList()
+
+    /** The signed-in listener's saved playlists and artists; empty when not personalising. */
+    suspend fun accountLibrary(): AccountLibrary = AccountLibrary()
+
+    /** What the signed-in listener played recently, on any device; empty when not personalising. */
+    suspend fun accountHistory(): List<Song> = emptyList()
 }

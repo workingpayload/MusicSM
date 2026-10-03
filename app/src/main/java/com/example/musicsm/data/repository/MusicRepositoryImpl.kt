@@ -1,5 +1,6 @@
 package com.example.musicsm.data.repository
 
+import com.example.musicsm.domain.model.AccountLibrary
 import com.example.musicsm.domain.model.Album
 import com.example.musicsm.domain.model.AlbumAudio
 import com.example.musicsm.domain.model.Artist
@@ -98,8 +99,11 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun radio(seed: Song, limit: Int, exclude: Set<String>): List<Song> =
         withContext(Dispatchers.IO) {
             val blocked = exclude + seed.id
-            val first = runCatching { source.relatedTo(seed.id) }
+            // The signed-in listener's own radio for the seed leads when there is one; it is
+            // already a long, personal queue, and the branches below widen it as usual.
+            val first = runCatching { source.personalRadio(seed.id) }
                 .getOrDefault(emptyList())
+                .ifEmpty { runCatching { source.relatedTo(seed.id) }.getOrDefault(emptyList()) }
                 .filter { it.id !in blocked }
                 .distinctBy { it.id }
             if (first.isEmpty()) return@withContext emptyList()
@@ -135,6 +139,12 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override fun browseTiles(): List<BrowseTile> = BROWSE_TILES
+
+    override suspend fun accountLibrary(): AccountLibrary =
+        withContext(Dispatchers.IO) { source.accountLibrary() }
+
+    override suspend fun accountHistory(): List<Song> =
+        withContext(Dispatchers.IO) { source.accountHistory() }
 
     companion object {
         private const val REFRESH_MARGIN_MS = 60_000L

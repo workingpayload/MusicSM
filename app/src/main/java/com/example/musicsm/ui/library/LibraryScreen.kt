@@ -81,10 +81,12 @@ fun LibraryScreen(
     onOpenStats: () -> Unit,
     onOpenLocal: () -> Unit,
     onOpenCached: () -> Unit,
+    onOpenRemotePlaylist: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val accountLibrary by viewModel.accountLibrary.collectAsStateWithLifecycle()
     val liked by viewModel.likedSongs.collectAsStateWithLifecycle()
     val recent by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
     val followed by viewModel.followedArtists.collectAsStateWithLifecycle()
@@ -217,6 +219,33 @@ fun LibraryScreen(
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
                     items(followed, key = { it.id }) { artist ->
+                        ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
+                    }
+                }
+            }
+        }
+
+        // The signed-in YouTube Music library (Settings ▸ YouTube account ▸ Personalise)
+        if (accountLibrary.playlists.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.library_youtube_playlists)) }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    items(accountLibrary.playlists, key = { it.id }) { playlist ->
+                        AlbumCard(
+                            title = playlist.name,
+                            subtitle = stringResource(R.string.library_youtube_music),
+                            artworkUrl = playlist.artworkUrl,
+                            onClick = { onOpenRemotePlaylist(playlist.id) },
+                        )
+                    }
+                }
+            }
+        }
+        if (accountLibrary.artists.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.library_youtube_artists)) }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    items(accountLibrary.artists, key = { it.id }) { artist ->
                         ArtistCircle(artist = artist, onClick = { onOpenArtist(artist.id) })
                     }
                 }

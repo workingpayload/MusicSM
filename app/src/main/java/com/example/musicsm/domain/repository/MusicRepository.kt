@@ -1,5 +1,6 @@
 package com.example.musicsm.domain.repository
 
+import com.example.musicsm.domain.model.AccountLibrary
 import com.example.musicsm.domain.model.Album
 import com.example.musicsm.domain.model.AlbumAudio
 import com.example.musicsm.domain.model.Artist
@@ -75,4 +76,10 @@ interface MusicRepository {
 
     /** Static curated genre/mood tiles for the Search landing screen. */
     fun browseTiles(): List<BrowseTile>
+
+    /** The signed-in listener's YouTube Music playlists and artists; empty when not personalising. */
+    suspend fun accountLibrary(): AccountLibrary
+
+    /** The signed-in listener's recent plays on YouTube Music; empty when not personalising. */
+    suspend fun accountHistory(): List<Song>
 }

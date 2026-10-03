@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.musicsm.R
+import com.example.musicsm.data.auth.YouTubePersonalization
 import com.example.musicsm.domain.model.Artist
 import com.example.musicsm.domain.model.HomeFeed
 import com.example.musicsm.domain.model.HomeItem
@@ -28,7 +29,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -66,6 +70,7 @@ class HomeViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val statsRepository: StatsRepository,
     private val cachedSongsRepository: CachedSongsRepository,
+    personalization: YouTubePersonalization,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -81,6 +86,12 @@ class HomeViewModel @Inject constructor(
 
     init {
         load()
+        // Turning YouTube personalisation on or off (or signing in or out) changes what Home is
+        // built from, so rebuild it rather than leave the old feed up.
+        personalization.enabled
+            .drop(1)
+            .onEach { refresh() }
+            .launchIn(viewModelScope)
     }
 
     fun load() {
@@ -258,10 +269,18 @@ class HomeViewModel @Inject constructor(
      * now takes about as long as its slowest single request instead of the sum of all of them.
      */
     private suspend fun buildNetwork(
-        profile: TasteProfile,
+        localProfile: TasteProfile,
         followed: List<Artist>,
         shown: MutableSet<String>,
     ): List<HomeSection> = coroutineScope {
+        // With YouTube personalisation on, the account's play history sharpens the profile; it is
+        // fetched here rather than in the local phase so the instant offline shelves don't wait.
+        val accountHistory = runCatching { repository.accountHistory() }.getOrDefault(emptyList())
+        val profile = if (accountHistory.isEmpty()) {
+            localProfile
+        } else {
+            runCatching { buildProfile(followed, accountHistory) }.getOrDefault(localProfile)
+        }
         val seedArtists = followed.take(SEED_COUNT)
 
         val discoverAsync = async {
@@ -307,6 +326,16 @@ class HomeViewModel @Inject constructor(
             if (songs.isEmpty()) return
             shown += songs.map { it.id }
             sections += HomeSection(title, songs.map { HomeItem.SongItem(it) })
+        }
+
+        // The listener's own YouTube Music home (Quick picks, Listen again, their mixes) is the
+        // strongest material there is, so it leads and is kept whole; the editorial feed shared by
+        // everyone goes last instead (below).
+        val generic = genericAsync.await()
+        continuation = generic.continuation
+        if (generic.personalized) {
+            sections += generic.sections
+            shown += generic.sections.songIds()
         }
 
         addSongs(
@@ -379,12 +408,12 @@ class HomeViewModel @Inject constructor(
 
         // The provider's generic feed is the same for everybody, so it goes last — and once there
         // is real history to personalize from, it is trimmed so it can't dominate the page.
-        val generic = genericAsync.await()
-        continuation = generic.continuation
-        sections += if (profile.hasHistory) {
-            generic.sections.take(MAX_GENERIC_SECTIONS)
-        } else {
-            generic.sections
+        if (!generic.personalized) {
+            sections += if (profile.hasHistory) {
+                generic.sections.take(MAX_GENERIC_SECTIONS)
+            } else {
+                generic.sections
+            }
         }
 
         sections
@@ -409,7 +438,10 @@ class HomeViewModel @Inject constructor(
     }
 
     /** Fold history, likes and follows into one deterministic picture of the listener's taste. */
-    private suspend fun buildProfile(followed: List<Artist>): TasteProfile = coroutineScope {
+    private suspend fun buildProfile(
+        followed: List<Artist>,
+        accountHistory: List<Song> = emptyList(),
+    ): TasteProfile = coroutineScope {
         val recentAsync = async { statsOrEmpty(StatsRange.LAST_4_WEEKS) }
         val lifetimeAsync = async { statsOrEmpty(StatsRange.ALL_TIME) }
         val likedAsync = async {
@@ -423,7 +455,8 @@ class HomeViewModel @Inject constructor(
             lifetime = lifetimeAsync.await(),
             liked = likedAsync.await(),
             followedArtists = followed,
-            recentlyPlayed = recentlyPlayedAsync.await(),
+            // Plays from YouTube Music on other devices count too, after this device's own.
+            recentlyPlayed = (recentlyPlayedAsync.await() + accountHistory).distinctBy { it.id },
             seedCount = SEED_COUNT,
             rotationSize = SHELF_SIZE,
         )

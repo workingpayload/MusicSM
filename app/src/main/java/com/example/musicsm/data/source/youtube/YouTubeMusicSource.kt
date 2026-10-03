@@ -11,6 +11,8 @@ import com.example.innertube.model.YtShelf
 import com.example.innertube.model.YtSong
 import com.example.musicsm.data.auth.SignInPrompt
 import com.example.musicsm.data.auth.YouTubeAccount
+import com.example.musicsm.data.auth.YouTubePersonalization
+import com.example.musicsm.domain.model.AccountLibrary
 import com.example.musicsm.domain.model.Album
 import com.example.musicsm.domain.model.AlbumAudio
 import com.example.musicsm.domain.model.Artist
@@ -57,6 +59,7 @@ class YouTubeMusicSource @Inject constructor(
     private val newPipe: NewPipeMusicSource,
     private val signedIn: SignedInStreamResolver,
     private val account: YouTubeAccount,
+    private val personalization: YouTubePersonalization,
 ) : MusicSource {
 
     /** Age-restricted videos, and the audio-only version of the same song that plays instead. */
@@ -72,6 +75,11 @@ class YouTubeMusicSource @Inject constructor(
      * so what it needs from the network is a broad, fresh pool rather than someone else's guess.
      */
     override suspend fun homeFeed(): HomeFeed {
+        personalization.cookie()?.let { cookie ->
+            val personal = tryRemote { innerTube.home(cookie) }
+            val sections = personal?.shelves.orEmpty().mapNotNull { it.toSectionOrNull() }
+            if (sections.isNotEmpty()) return HomeFeed(sections, personal?.continuation, personalized = true)
+        }
         val page = tryRemote { innerTube.home() } ?: return newPipe.homeFeed()
         val sections = page.shelves.mapNotNull { it.toSectionOrNull() }
         return if (sections.isEmpty()) newPipe.homeFeed() else HomeFeed(sections, page.continuation)
@@ -81,10 +89,15 @@ class YouTubeMusicSource @Inject constructor(
      * The next batch of home shelves.
      *
      * There is no NewPipe fallback here: a failure part-way down an already-populated page should
-     * simply stop the feed growing, not replace what the listener is looking at.
+     * simply stop the feed growing, not replace what the listener is looking at. A personalised
+     * feed's cursor needs the session; an anonymous one is retried without it.
      */
     override suspend fun moreHomeShelves(continuation: String): HomeFeed {
-        val page = tryRemote { innerTube.homeContinuation(continuation) } ?: return HomeFeed()
+        val cookie = personalization.cookie()
+        val page = cookie?.let { tryRemote { innerTube.homeContinuation(continuation, it) } }
+            ?.takeIf { it.shelves.isNotEmpty() }
+            ?: tryRemote { innerTube.homeContinuation(continuation) }
+            ?: return HomeFeed()
         return HomeFeed(page.shelves.mapNotNull { it.toSectionOrNull() }, page.continuation)
     }
 
@@ -152,22 +165,35 @@ class YouTubeMusicSource @Inject constructor(
 
     override suspend fun playlist(id: String): Playlist {
         if (!id.isInnerTubePlaylistId()) return newPipe.playlist(id)
-        val playlist = tryRemote { innerTube.playlist(id) } ?: return newPipe.playlist(id)
+        val anonymous = tryRemote { innerTube.playlist(id) }
+        val playlist = anonymous?.takeIf { it.songs.isNotEmpty() }
+            ?: privatePlaylist(id)
+            ?: anonymous
+            ?: return newPipe.playlist(id)
         return playlist.toPlaylist()
+    }
+
+    /**
+     * A playlist only its signed-in owner can read (a private list, or Liked music), tried only
+     * after the anonymous request came back empty so public lists never touch the account.
+     */
+    private suspend fun privatePlaylist(id: String, maxSongs: Int = 0): YtPlaylist? {
+        val cookie = personalization.cookie() ?: return null
+        return tryRemote { innerTube.playlist(id, maxSongs, cookie) }?.takeIf { it.songs.isNotEmpty() }
     }
 
     override suspend fun fullPlaylist(id: String, maxTracks: Int): Playlist {
         if (id.isInnerTubePlaylistId()) {
-            tryRemote { innerTube.playlist(id, maxTracks) }
-                ?.takeIf { it.songs.isNotEmpty() }
-                ?.let { list ->
-                    return Playlist(
-                        id = list.id,
-                        name = list.title,
-                        artworkUrl = YouTubeArtwork.resizeOrNull(list.thumbnailUrl, YouTubeArtwork.CANONICAL),
-                        songs = list.songs.map { it.toSong() },
-                    )
-                }
+            val list = tryRemote { innerTube.playlist(id, maxTracks) }?.takeIf { it.songs.isNotEmpty() }
+                ?: privatePlaylist(id, maxTracks)
+            if (list != null) {
+                return Playlist(
+                    id = list.id,
+                    name = list.title,
+                    artworkUrl = YouTubeArtwork.resizeOrNull(list.thumbnailUrl, YouTubeArtwork.CANONICAL),
+                    songs = list.songs.map { it.toSong() },
+                )
+            }
         }
         // Lists YouTube Music can't browse (channel uploads, radio mixes) still read through NewPipe.
         return newPipe.fullPlaylist(id, maxTracks)
@@ -185,8 +211,34 @@ class YouTubeMusicSource @Inject constructor(
      * near this track.
      */
     override suspend fun relatedTo(songId: String): List<Song> {
-        val related = tryRemote { innerTube.relatedSongs(songId) }
+        val related = personalization.cookie()
+            ?.let { cookie -> tryRemote { innerTube.relatedSongs(songId, cookie) } }
+            ?.takeIf { it.isNotEmpty() }
+            ?: tryRemote { innerTube.relatedSongs(songId) }
         return if (related.isNullOrEmpty()) newPipe.relatedTo(songId) else related.map { it.toSong() }
+    }
+
+    /** YouTube Music's radio for [songId] as the signed-in listener would get it. */
+    override suspend fun personalRadio(songId: String): List<Song> {
+        val cookie = personalization.cookie() ?: return emptyList()
+        return tryRemote { innerTube.upNext(songId, cookie) }.orEmpty().map { it.toSong() }
+    }
+
+    override suspend fun accountLibrary(): AccountLibrary {
+        val cookie = personalization.cookie() ?: return AccountLibrary()
+        return coroutineScope {
+            val playlists = async { tryRemote { innerTube.libraryPlaylists(cookie) }.orEmpty() }
+            val artists = async { tryRemote { innerTube.libraryArtists(cookie) }.orEmpty() }
+            AccountLibrary(
+                playlists = playlists.await().distinctBy { it.id }.map { it.toPlaylist() },
+                artists = artists.await().distinctBy { it.id }.map { it.toArtist() },
+            )
+        }
+    }
+
+    override suspend fun accountHistory(): List<Song> {
+        val cookie = personalization.cookie() ?: return emptyList()
+        return tryRemote { innerTube.history(cookie) }.orEmpty().map { it.toSong() }
     }
 
     /** Metadata for a track; for an age-restricted video, from YouTube Music's player endpoint. */

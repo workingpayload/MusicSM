@@ -547,7 +547,12 @@
     <string name="youtube_signed_out">Signed out of YouTube</string>
     <string name="settings_section_youtube_account">YouTube account</string>
     <string name="settings_youtube_signed_in_title">Signed in · Sign out</string>
-    <string name="settings_youtube_signed_in_subtitle">Used only when YouTube blocks anonymous playback. Tap to sign out and forget the session.</string>
+    <string name="settings_youtube_signed_in_subtitle">Plays through your account when YouTube blocks anonymous playback. Tap to sign out and forget the session.</string>
     <string name="settings_youtube_signed_out_subtitle">Optional. Keeps music playing when YouTube asks to confirm you’re not a bot.</string>
+    <string name="settings_youtube_personalize_title">Personalise with my YouTube account</string>
+    <string name="settings_youtube_personalize_subtitle">Home, radio and recommendations from your YouTube Music taste and history, plus your YouTube playlists and artists in Library. Read-only: nothing is liked, saved or added to your history.</string>
+    <string name="library_youtube_playlists">Your YouTube Music playlists</string>
+    <string name="library_youtube_artists">Your YouTube Music artists</string>
+    <string name="library_youtube_music">YouTube Music</string>
 
 </resources>

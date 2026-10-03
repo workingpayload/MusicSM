@@ -2,22 +2,28 @@
 
 ## v3.0.2 — 2026-10-04
 
-Keeps music playing when YouTube asks to "confirm you're not a bot".
+Keeps music playing when YouTube asks to "confirm you're not a bot", and can optionally personalise MusicSM with your YouTube Music account.
 
 ### New
 - **Optional Google sign-in.** YouTube sometimes stops anonymous playback for a whole network ("Sign in to confirm you're not a bot"). MusicSM now notices this and asks you to sign in. You sign in on Google's own page inside the app. MusicSM keeps only YouTube's session cookies, on this device, and never sees your password. Once you're signed in, the blocked song plays again and later songs play through your account until the block lifts. Sign in or out anytime in **Settings → YouTube account**. If YouTube stops accepting a saved sign-in, MusicSM asks you to sign in again.
-- **Age-restricted videos** now play the video itself when you're signed in and no audio-only version of the song can be found.
+  - **Age-restricted videos** now play the video itself when you're signed in and no audio-only version of the song can be found.
+- **Personalise with your YouTube account** (optional, off by default). Once signed in, turn it on in **Settings → YouTube account** and MusicSM uses your YouTube Music taste:
+  - **Home** starts with your own YouTube Music shelves (Quick picks, Listen again, your mixes), followed by MusicSM's own picks.
+  - **Radio** starts with YouTube Music's radio for the song as it would play for you, and related songs are tuned to you too.
+  - **Your YouTube Music history** from any device feeds Home's recommendations.
+  - **Library** shows your YouTube Music playlists (Liked music included, private ones too) and the artists you subscribe to. Tap one to open it.
+  - It only reads: nothing is liked, saved or added to your YouTube history. If a personal request fails, MusicSM quietly uses the regular feed.
 
 ### Fixes
 - **No more skipping through the whole queue when YouTube blocks playback.** Every song would fail the same way, so the player now stops on the current song and asks you to sign in instead of skipping track after track. Downloaded and cached songs still play.
 
 ### Notes
-- Signing in is optional, and only used while YouTube blocks anonymous playback. Using an unofficial app with your account goes against YouTube's terms and could get the account restricted, so consider a secondary account.
-- The saved sign-in is never included in Android backups or device transfers.
-- NewPipeExtractor stays on v0.26.5, its newest release.
-- The watch app is unchanged; v3.0.0 on the watch works with v3.0.2 on the phone.
-- No database change (still schema v6), so your library carries over untouched.
-- Still not Play-shippable (GPLv3 NewPipeExtractor + YouTube ToS); for personal / educational use.
+- Signing in is optional. On its own it's only used while YouTube blocks anonymous playback; personalisation is a separate switch. Using an unofficial app with your account goes against YouTube's terms and could get the account restricted, so consider a secondary account.
+  - The saved sign-in is never included in Android backups or device transfers.
+  - NewPipeExtractor stays on v0.26.5, its newest release.
+  - The watch app is unchanged; v3.0.0 on the watch works with v3.0.2 on the phone.
+  - No database change (still schema v6), so your library carries over untouched.
+  - Still not Play-shippable (GPLv3 NewPipeExtractor + YouTube ToS); for personal / educational use.
 
 ## v3.0.1 — 2026-10-02
 

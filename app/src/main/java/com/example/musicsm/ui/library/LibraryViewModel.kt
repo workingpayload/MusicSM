@@ -2,15 +2,22 @@ package com.example.musicsm.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.musicsm.data.auth.YouTubePersonalization
+import com.example.musicsm.domain.model.AccountLibrary
 import com.example.musicsm.domain.model.Artist
 import com.example.musicsm.domain.model.Playlist
 import com.example.musicsm.domain.model.Song
 import com.example.musicsm.domain.repository.DownloadRepository
 import com.example.musicsm.domain.repository.LibraryRepository
+import com.example.musicsm.domain.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,7 +26,24 @@ import javax.inject.Inject
 class LibraryViewModel @Inject constructor(
     private val repository: LibraryRepository,
     downloadRepository: DownloadRepository,
+    musicRepository: MusicRepository,
+    personalization: YouTubePersonalization,
 ) : ViewModel() {
+
+    /**
+     * The signed-in listener's YouTube Music playlists and artists, while personalisation is on.
+     * Read again each time the Library comes back into view, so changes made elsewhere show up.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val accountLibrary: StateFlow<AccountLibrary> = personalization.enabled
+        .flatMapLatest { enabled ->
+            if (enabled) {
+                flow { emit(runCatching { musicRepository.accountLibrary() }.getOrDefault(AccountLibrary())) }
+            } else {
+                flowOf(AccountLibrary())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountLibrary())
 
     val downloads: StateFlow<List<Song>> = downloadRepository.downloads()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

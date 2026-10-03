@@ -117,6 +117,7 @@ fun SettingsScreen(
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val updateState by updateViewModel.state.collectAsStateWithLifecycle()
     val youTubeSignedIn by accountViewModel.signedIn.collectAsStateWithLifecycle()
+    val personalizeYouTube by accountViewModel.personalize.collectAsStateWithLifecycle()
     val showYouTubeSignIn by accountViewModel.showSignIn.collectAsStateWithLifecycle()
     val signedInMessage = stringResource(R.string.youtube_signed_in)
     val signedOutMessage = stringResource(R.string.youtube_signed_out)
@@ -476,6 +477,16 @@ fun SettingsScreen(
                         title = stringResource(R.string.youtube_signin_action),
                         subtitle = stringResource(R.string.settings_youtube_signed_out_subtitle),
                         onClick = accountViewModel::openSignIn,
+                    )
+                }
+            }
+            if (youTubeSignedIn) {
+                item {
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_youtube_personalize_title),
+                        subtitle = stringResource(R.string.settings_youtube_personalize_subtitle),
+                        checked = personalizeYouTube,
+                        onCheckedChange = accountViewModel::setPersonalize,
                     )
                 }
             }

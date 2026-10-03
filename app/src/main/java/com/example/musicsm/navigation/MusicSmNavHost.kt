@@ -92,6 +92,8 @@ fun MusicSmNavHost(
                 onOpenStats = { navController.navigate(Routes.STATS) },
                 onOpenLocal = { navController.navigate(Routes.LOCAL) },
                 onOpenCached = { navController.navigate(Routes.CACHED) },
+                // A YouTube Music playlist opens on the album/playlist detail screen.
+                onOpenRemotePlaylist = { navController.navigate(Routes.album(it)) },
             )
         }
         composable(

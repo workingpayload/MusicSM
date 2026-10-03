@@ -138,6 +138,17 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
     val searchVideosNow: Boolean get() = prefs.getBoolean(KEY_SEARCH_VIDEOS, false)
     fun setSearchVideos(value: Boolean) = prefs.edit().putBoolean(KEY_SEARCH_VIDEOS, value).apply()
 
+    // --- YouTube account ---------------------------------------------------
+
+    /**
+     * Use the signed-in YouTube account for Home, radio, related songs, history and the library.
+     * Off by default: signing in alone only unblocks playback. Not part of backups, like the
+     * account itself.
+     */
+    val personalizeYouTube: Flow<Boolean> get() = watch(KEY_PERSONALIZE_YOUTUBE) { personalizeYouTubeNow }
+    val personalizeYouTubeNow: Boolean get() = prefs.getBoolean(KEY_PERSONALIZE_YOUTUBE, false)
+    fun setPersonalizeYouTube(value: Boolean) = prefs.edit().putBoolean(KEY_PERSONALIZE_YOUTUBE, value).apply()
+
     // --- appearance --------------------------------------------------------
 
     /** One of [com.example.musicsm.ui.theme.ThemeMode]'s names; defaults to the dark palette. */
@@ -606,6 +617,7 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_CACHE_SONGS = "cache_songs"
         private const val KEY_CACHE_LIMIT_MB = "cache_limit_mb"
         private const val KEY_SEARCH_VIDEOS = "search_videos"
+        private const val KEY_PERSONALIZE_YOUTUBE = "personalize_youtube"
         private const val KEY_FX_ENABLED = "fx_enabled"
         private const val KEY_FX_PRESET = "fx_preset"
         private const val KEY_FX_BANDS = "fx_bands"
