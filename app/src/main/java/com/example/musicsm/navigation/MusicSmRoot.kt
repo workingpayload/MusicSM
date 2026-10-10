@@ -71,6 +71,7 @@ import com.example.musicsm.ui.components.LocalBottomBarPadding
 import com.example.musicsm.ui.components.LocalHazeState
 import com.example.musicsm.ui.components.LocalSongNavigator
 import com.example.musicsm.ui.components.MiniPlayer
+import com.example.musicsm.ui.components.rememberMixArtState
 import com.example.musicsm.ui.components.SongNavigator
 import com.example.musicsm.ui.components.glassBackdrop
 import com.example.musicsm.ui.components.rememberHazeState
@@ -152,6 +153,14 @@ fun MusicSmRoot(
     val hasSong = playerState.currentSong != null
     // Derived so screens only recompose when the sheet opens/closes, not on every animation frame.
     val playerExpanded by remember { derivedStateOf { expand.value > 0.01f } }
+    // The mini player's cover follows a crossfade/Mix into the next track.
+    val mixBlend by playerViewModel.mixBlend.collectAsStateWithLifecycle()
+    val miniMixArt = rememberMixArtState(
+        blend = mixBlend,
+        currentSongId = playerState.currentSong?.id,
+        positionFlow = playerViewModel.position,
+        isPlaying = playerState.isPlaying && !playerExpanded,
+    )
     // Compose turns a Back key press into "move focus out" whenever something holds focus, and
     // swallows it. A text field left focused behind the sheet (e.g. the search box after tapping a
     // result) would eat the first back press, so focus is dropped as soon as the sheet opens.
@@ -389,6 +398,7 @@ fun MusicSmRoot(
                                 onTogglePlay = playerViewModel::togglePlayPause,
                                 onNext = playerViewModel::next,
                                 compact = compact,
+                                mixArt = miniMixArt,
                                 modifier = placement
                                     // Fade out as the full sheet takes over.
                                     .graphicsLayer {

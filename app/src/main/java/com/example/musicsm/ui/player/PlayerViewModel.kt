@@ -12,6 +12,8 @@ import com.example.musicsm.domain.repository.LyricsSyncRepository
 import com.example.musicsm.domain.repository.MotionArtRepository
 import com.example.musicsm.domain.repository.MusicRepository
 import com.example.musicsm.playback.MediaControllerManager
+import com.example.musicsm.playback.MixBlend
+import com.example.musicsm.playback.MixTransitionBus
 import com.example.musicsm.playback.PlayerState
 import com.example.musicsm.playback.SleepTimerManager
 import com.example.musicsm.playback.SleepTimerState
@@ -83,9 +85,13 @@ class PlayerViewModel @Inject constructor(
     private val motionArtRepository: MotionArtRepository,
     private val sleepTimerManager: SleepTimerManager,
     private val preferences: AppPreferences,
+    mixTransitions: MixTransitionBus,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = controller.state
+
+    /** The crossfade/Mix blend lined up into the next track, for the artwork to follow. */
+    val mixBlend: StateFlow<MixBlend?> = mixTransitions.blend
 
     /** Fine-grained playback position (ms) for the scrubber, synced lyrics and ambient progress. */
     val position: StateFlow<Long> = controller.position

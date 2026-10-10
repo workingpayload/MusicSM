@@ -131,6 +131,9 @@ import com.example.musicsm.ui.library.LibraryViewModel
 import kotlinx.coroutines.flow.flowOf
 import com.example.musicsm.ui.components.ArtworkImage
 import com.example.musicsm.ui.components.ArtworkSize
+import com.example.musicsm.ui.components.MixArtOverlay
+import com.example.musicsm.ui.components.rememberMixArtState
+import com.example.musicsm.ui.components.rememberMixedAccent
 import com.example.musicsm.ui.components.HueCircularProgress
 import com.example.musicsm.ui.components.LocalHazeState
 import com.example.musicsm.ui.components.PlayPauseButton
@@ -253,6 +256,29 @@ fun NowPlayingScreen(
     val haze = rememberHazeState()
     val liquidBackdrop = rememberLayerBackdrop()
 
+    val mixBlend by viewModel.mixBlend.collectAsStateWithLifecycle()
+    val mixArt = rememberMixArtState(
+        blend = mixBlend,
+        currentSongId = song?.id,
+        positionFlow = viewModel.position,
+        isPlaying = state.isPlaying && sheetVisible,
+    )
+    // The backdrop's tint follows the blend too (read in the draw phase only).
+    val backdropAccent = rememberMixedAccent(accent, mixArt)
+    // The blurred backdrop's slow drift, shared by the cover fading in during a blend.
+    val backdropDrift = Modifier.graphicsLayer {
+        // Read here, in the layer, so each drift frame is a repaint only.
+        if (!driftActive) return@graphicsLayer
+        val a = driftPhase.value * 2f * PI.toFloat()
+        // Oversized enough that a ±10° tilt plus the orbit never uncovers a corner of a tall screen.
+        val s = DRIFT_SCALE + 0.06f * sin(2f * a)
+        scaleX = s
+        scaleY = s
+        rotationZ = 10f * sin(a)
+        translationX = cos(a) * size.width * 0.06f
+        translationY = sin(a) * size.height * 0.04f
+    }
+
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         // Captured up front so the immersive gap below can size itself against the real screen
         // rather than a guessed one; the scrolling column's own height is unbounded.
@@ -276,19 +302,7 @@ fun NowPlayingScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .matchParentSize()
-                            .graphicsLayer {
-                                // Read here, in the layer, so each drift frame is a repaint only.
-                                if (!driftActive) return@graphicsLayer
-                                val a = driftPhase.value * 2f * PI.toFloat()
-                                // Oversized enough that a ±10° tilt plus the orbit never uncovers
-                                // a corner of a tall screen.
-                                val s = DRIFT_SCALE + 0.06f * sin(2f * a)
-                                scaleX = s
-                                scaleY = s
-                                rotationZ = 10f * sin(a)
-                                translationX = cos(a) * size.width * 0.06f
-                                translationY = sin(a) * size.height * 0.04f
-                            }
+                            .then(backdropDrift)
                             .blur(60.dp),
                     )
                 }
@@ -305,6 +319,19 @@ fun NowPlayingScreen(
                     modifier = Modifier.matchParentSize(),
                 )
             }
+            // During a crossfade/Mix the next track's blurred cover fades in with its audio.
+            if (mixArt.next != null) {
+                Box(Modifier.matchParentSize().clipToBounds()) {
+                    MixArtOverlay(
+                        state = mixArt,
+                        targetSizePx = ArtworkSize.TILE,
+                        modifier = Modifier
+                            .matchParentSize()
+                            .then(backdropDrift)
+                            .blur(60.dp),
+                    )
+                }
+            }
             // Dominant-color tint + vertical darkening for legibility (color read in draw phase).
             // The tint is dropped over a cover loop, which supplies its own colour and would only
             // be muddied by a wash of the still's dominant one.
@@ -312,7 +339,7 @@ fun NowPlayingScreen(
                 modifier = Modifier
                     .matchParentSize()
                     .drawBehind {
-                        if (backdropArt == null) drawRect(accent.value.copy(alpha = 0.35f))
+                        if (backdropArt == null) drawRect(backdropAccent.value.copy(alpha = 0.35f))
                         // Once the video carries the screen the scrim pulls back to the two bands
                         // that actually sit under text, leaving the middle clear to be looked at.
                         val stops = if (immersive) {
@@ -370,7 +397,10 @@ fun NowPlayingScreen(
                         playing = state.isPlaying && sheetVisible,
                         fadeMillis = BACKDROP_FADE_MS,
                         onRenderedChange = { edgeShowing = it },
-                        modifier = Modifier.matchParentSize(),
+                        // Gives way to the backdrop as it blends into the next track's cover.
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer { if (mixArt.hasArtwork) alpha = 1f - mixArt.value },
                     )
                 }
             }
@@ -472,6 +502,12 @@ fun NowPlayingScreen(
                         modifier = Modifier.matchParentSize(),
                     )
                 }
+                // The next track's cover, fading in as its audio blends in.
+                MixArtOverlay(
+                    state = mixArt,
+                    targetSizePx = ArtworkSize.HERO,
+                    modifier = Modifier.matchParentSize(),
+                )
             }
         }
 

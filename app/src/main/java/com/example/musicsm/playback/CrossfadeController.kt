@@ -65,6 +65,7 @@ class CrossfadeController(
     dataSourceFactory: DataSource.Factory,
     private val mainFilter: DjFilterProcessor,
     private val scope: CoroutineScope,
+    private val transitions: MixTransitionBus,
 ) {
     var crossfadeMs: Int = 0
         set(value) {
@@ -209,6 +210,7 @@ class CrossfadeController(
         private var startSet = false
         private var closed = false
         private var nextStartMs = 0.0
+        private var published: MixBlend? = null
 
         fun start(position: Long, speed: Float) {
             job = scope.launch {
@@ -311,6 +313,8 @@ class CrossfadeController(
                 ),
             )
             armed = true
+            published = MixBlend(outgoing.mediaId, MediaItemMapper.toSong(next), handoff, handoff + fade)
+                .also(transitions::publish)
             Log.d(
                 TAG,
                 "armed $this: blend ${handoff.fmt()}..${(handoff + fade).fmt()}/$duration matched=$matched, " +
@@ -359,6 +363,14 @@ class CrossfadeController(
             val join = mainFilter.takeJoin()
             mainFilter.clear()
             if (startSet) setStart(next.mediaId, 0.0)
+            // Kept a moment: the UI hears of the track change over the session, and dropping the
+            // blend before that would flash the old cover back for a frame.
+            published?.let { blend ->
+                scope.launch {
+                    delay(BLEND_LINGER_MS)
+                    transitions.clear(blend)
+                }
+            }
             Log.d(TAG, "joined $this: gap ${join?.gapMs?.fmt()}ms, fixed=${join?.fixed}")
             // Started from the top after all: the fade stage dropped the part the mix already
             // played, so the audio is right but the reported position is behind by that much.
@@ -372,6 +384,7 @@ class CrossfadeController(
             close()
             job?.cancel()
             if (armed) mainFilter.clear()
+            published?.let(transitions::clear)
             if (startSet) setStart(next.mediaId, 0.0)
             Log.d(TAG, "cancel $this: $reason")
         }
@@ -451,6 +464,7 @@ class CrossfadeController(
         released = true
         stopMonitor()
         pending?.cancel("released")
+        transitions.clear()
         if (listenerAttached) {
             mainPlayer.removeListener(listener)
             listenerAttached = false
@@ -472,6 +486,7 @@ class CrossfadeController(
         const val POLL_MS = 200L
         const val MIX_WINDOW_MS = 8_000 // blend length in Mix mode
         const val MIN_FADE_MS = 1_000L
+        const val BLEND_LINGER_MS = 1_500L // keep a finished blend for the UI to catch the track change
 
         // Scheduling (media ms; scaled by the user's speed where it matters).
         const val PREPARE_LEAD_MS = 20_000L // crossfade: decode the next opening this far ahead

@@ -80,6 +80,10 @@ import coil3.compose.AsyncImage
 import com.example.musicsm.R
 import com.example.musicsm.ui.components.ArtworkImage
 import com.example.musicsm.ui.components.ArtworkSize
+import com.example.musicsm.ui.components.MixArtOverlay
+import com.example.musicsm.ui.components.MixArtState
+import com.example.musicsm.ui.components.rememberMixArtState
+import com.example.musicsm.ui.components.rememberMixedAccent
 import com.example.musicsm.ui.components.accentColorFor
 import com.example.musicsm.ui.components.currentLocale
 import com.example.musicsm.ui.components.rememberDominantColorState
@@ -175,10 +179,19 @@ fun AmbientScreen(
         }
     }
 
-    val accent = rememberDominantColorState(
+    val currentAccent = rememberDominantColorState(
         url = song?.artworkUrl,
         fallback = accentColorFor(song?.id ?: song?.title),
     )
+    // Artwork, glow and aurora all follow a crossfade/Mix into the next track.
+    val mixBlend by viewModel.mixBlend.collectAsStateWithLifecycle()
+    val mixArt = rememberMixArtState(
+        blend = mixBlend,
+        currentSongId = song?.id,
+        positionFlow = viewModel.position,
+        isPlaying = state.isPlaying,
+    )
+    val accent = rememberMixedAccent(currentAccent, mixArt)
 
     // Deliberately mismatched, mutually prime-ish periods: the layers never line back up, so the
     // composition keeps changing instead of visibly looping.
@@ -210,6 +223,14 @@ fun AmbientScreen(
             },
     ) {
         // Blurred artwork wash, scaled up so the drift never exposes an edge.
+        val washDrift = Modifier.graphicsLayer {
+            // Slow zoom as well as pan, so the wash never settles into a still frame.
+            val zoom = 1.3f + breath.value * 0.06f
+            scaleX = zoom
+            scaleY = zoom
+            translationX = cos(driftPhase.value) * 40f
+            translationY = sin(driftPhase.value) * 40f
+        }
         if (!song?.artworkUrl.isNullOrEmpty()) {
             AsyncImage(
                 model = song?.artworkUrl,
@@ -217,19 +238,22 @@ fun AmbientScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        // Slow zoom as well as pan, so the wash never settles into a still frame.
-                        val zoom = 1.3f + breath.value * 0.06f
-                        scaleX = zoom
-                        scaleY = zoom
-                        translationX = cos(driftPhase.value) * 40f
-                        translationY = sin(driftPhase.value) * 40f
-                        alpha = 0.55f
-                    }
+                    .then(washDrift)
+                    .graphicsLayer { alpha = 0.55f }
                     .blur(90.dp)
                     .drawBehind { drawRect(Color.Black) },
             )
         }
+        MixArtOverlay(
+            state = mixArt,
+            targetSizePx = ArtworkSize.TILE,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(washDrift)
+                .graphicsLayer { alpha = 0.55f }
+                .blur(90.dp)
+                .drawBehind { drawRect(Color.Black) },
+        )
 
         AuroraBackdrop(
             accent = accent,
@@ -290,6 +314,7 @@ fun AmbientScreen(
                             url = song?.artworkUrl,
                             accent = accent,
                             breath = breath,
+                            mixArt = mixArt,
                             modifier = Modifier.fillMaxHeight(0.78f).aspectRatio(1f),
                         )
                         Column(
@@ -320,6 +345,7 @@ fun AmbientScreen(
                             url = song?.artworkUrl,
                             accent = accent,
                             breath = breath,
+                            mixArt = mixArt,
                             modifier = Modifier.fillMaxWidth(0.70f).aspectRatio(1f),
                         )
                         Spacer(Modifier.height(44.dp))
@@ -459,6 +485,7 @@ private fun AmbientArtwork(
     url: String?,
     accent: State<Color>,
     breath: State<Float>,
+    mixArt: MixArtState,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -502,6 +529,15 @@ private fun AmbientArtwork(
                     .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(24.dp)),
             )
         }
+        // A crossfade/Mix into the next track dissolves the sleeve with the audio.
+        MixArtOverlay(
+            state = mixArt,
+            targetSizePx = ArtworkSize.HERO,
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(24.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(24.dp)),
+        )
     }
 }
 

@@ -66,6 +66,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var nowPlayingPublisher: NowPlayingPublisher
     @Inject lateinit var audioEffects: AudioEffectsManager
     @Inject lateinit var audioOutput: AudioOutputManager
+    @Inject lateinit var mixTransitions: MixTransitionBus
 
     private var mediaSession: MediaLibrarySession? = null
     private var crossfadeController: CrossfadeController? = null
@@ -277,6 +278,7 @@ class PlaybackService : MediaLibraryService() {
             dataSourceFactory = cacheDataSourceFactory,
             mainFilter = mixFilter,
             scope = serviceScope,
+            transitions = mixTransitions,
         )
 
         // "Skip silence" is a user setting; apply it live whenever it changes.
